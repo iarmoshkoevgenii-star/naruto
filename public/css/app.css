@@ -386,3 +386,7 @@ body.editing .ed-tools{display:inline-flex}
 .imp-row .st.new{color:var(--water);font-weight:600}
 .imp-row .st.diff{color:var(--orange-ink);font-weight:600}
 .imp-sum{margin:0;font-size:13.5px;color:var(--ink-2)}
+
+/* ---------- link back to the home page ---------- */
+.home-link{display:inline-block;margin-bottom:14px;font-size:14px;font-weight:600;color:var(--ink-2);text-decoration:none}
+.home-link:hover{color:var(--ink);text-decoration:underline;text-underline-offset:3px}

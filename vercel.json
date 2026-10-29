@@ -3,6 +3,16 @@
   "framework": null,
   "buildCommand": "node scripts/build-seed.mjs",
   "outputDirectory": "public",
+  "rewrites": [
+    {
+      "source": "/ja/naruto",
+      "destination": "/naruto.html"
+    },
+    {
+      "source": "/:lang(ja|en)/:slug",
+      "destination": "/api/content?id=:lang/:slug"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

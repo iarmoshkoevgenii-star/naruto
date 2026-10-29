@@ -407,7 +407,7 @@ function renderAccount() {
   $("acct").innerHTML = (S.role === "dev" ? '<span class="role">Разработчик</span>' : '') + '<button type="button" class="link-btn" id="logoutBtn">Выйти</button>';
   $("logoutBtn").addEventListener("click", async () => {
     try { await api("POST", "/api/auth?action=logout", {}); } catch (_) { }
-    location.reload();
+    location.href = "/";
   });
 }
 

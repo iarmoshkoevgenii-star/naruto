@@ -2,6 +2,7 @@
    Usage: npm run dev   (reads .env.local; edits go to LOCAL_STORE_DIR, default .local-store) */
 import http from "node:http";
 import { readFile } from "node:fs/promises";
+import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -32,7 +33,36 @@ const PUBLIC = path.join(ROOT, "public");
 
 const notFound = res => { res.statusCode = 404; res.end("Not found"); };
 
-async function handleApi(req, res, url) {
+/* vercel.json rewrites, like on Vercel: a real file wins, then the first matching rule. */
+const rewrites = (vercel.rewrites || []).map(r => {
+  // Supports the subset of path-to-regexp used in vercel.json: /literal, :name and :name(a|b).
+  const names = [];
+  const src = r.source.split("/").map(part => {
+    const m = /^:(\w+)(?:\((.+)\))?$/.exec(part);
+    if (!m) return part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    names.push(m[1]);
+    return "(" + (m[2] || "[^/]+") + ")";
+  }).join("/");
+  return { re: new RegExp("^" + src + "/?$"), names, destination: r.destination };
+});
+function rewrite(pathname) {
+  for (const r of rewrites) {
+    const m = r.re.exec(pathname);
+    if (!m) continue;
+    let dest = r.destination;
+    r.names.forEach((n, i) => { dest = dest.split(":" + n).join(m[i + 1]); });
+    return dest;
+  }
+  return null;
+}
+const staticFile = pathname => {
+  let rel = decodeURIComponent(pathname);
+  if (rel.endsWith("/")) rel += "index.html";
+  const file = path.join(PUBLIC, path.normalize(rel));
+  return file.startsWith(PUBLIC + path.sep) && existsSync(file) && statSync(file).isFile() ? file : null;
+};
+
+async function handleApi(req, res, url, original = url) {
   const name = url.pathname.slice("/api/".length).replace(/\/$/, "");
   if (!/^[a-z]+$/.test(name)) return notFound(res);
   let mod;
@@ -70,8 +100,13 @@ http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
     for (const h of globalHeaders) res.setHeader(h.key, h.value);
-    if (url.pathname.startsWith("/api/")) await handleApi(req, res, url);
-    else await serveStatic(res, url.pathname);
+    let target = url;
+    if (!url.pathname.startsWith("/api/") && !staticFile(url.pathname)) {
+      const dest = rewrite(url.pathname);
+      if (dest) target = new URL(dest, url);
+    }
+    if (target.pathname.startsWith("/api/")) await handleApi(req, res, target, url);
+    else await serveStatic(res, target.pathname);
   } catch (e) {
     console.error(e);
     if (!res.headersSent) res.statusCode = 500;

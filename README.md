@@ -5,6 +5,25 @@ The same study site as `naruto_study_site.html`, hosted on Vercel behind a login
 - **Reader** (`USER_LOGIN` / `USER_PASSWORD`): the site exactly as before — episodes, furigana, hidden translations, the grammar plan and Anki cards.
 - **Developer** (`DEV_LOGIN` / `DEV_PASSWORD`): everything a reader has, plus an edit mode for marking words and grammar in the lines, and a data panel for downloading and uploading the whole site as one file.
 
+## Pages
+
+| Address | What it is |
+|---|---|
+| `/` | Home: login, then a language, then a series |
+| `/ja/naruto` | The Naruto study site (`public/naruto.html`) |
+| `/en/desperate-housewives` | Desperate Housewives, episode 1 (`content/en/desperate-housewives.html`) |
+| `/ja/bleach`, `/ja/jojo`, `/ja/one-piece`, `/en/friends`, `/en/sherlock-holmes` | Series without content yet: an empty page |
+
+Every page needs a login. Series pages in `content/` are served by `api/content.js` only to a signed-in session, so their built-in data is never public.
+
+### Adding a series page
+
+1. Put the page, a single self-contained HTML file, into `content/<language>/<name>.html`, for example `content/en/friends.html`. The name must be the series' address name in lowercase Latin letters, digits and hyphens.
+2. If the series is not in the list yet, add it to `CATALOG` at the top of `public/js/landing.js` (`slug` is the same name, `title` and `orig` are the Russian and original titles, `note` is the optional status line).
+3. Commit. The deploy bundles the page, and the home page marks the series as ready on its own.
+
+Inline `<script>` blocks are moved into a separate file automatically during the build (the site's security policy does not run inline scripts), and a "← Все сериалы" link is added at the top of the page.
+
 ## Deploy
 
 ### 1. Put the files in a Git repository
@@ -101,6 +120,7 @@ npm run dev                     # http://localhost:3000, edits are saved in .loc
 ```
 api/            Vercel Functions
   auth.js         sign in, sign out, current role
+  content.js      series pages from content/, after login
   data.js         topics, speakers, known words, episode list; add topics; merge on upload
   episode.js      read and save one episode
   template.js     the single-file engine used by "Скачать файл сайта"
@@ -110,12 +130,14 @@ lib/
   store.js        data/ plus the private Blob store (or a local folder for npm run dev)
   standalone-template.html
   seed-data.js    generated from data/ on each deploy
-data/           the episodes and catalogs the site was deployed with
-public/         the page: index.html, css/app.css, js/app.js, js/editor.js, js/model.js
+  content-data.js generated from content/ on each deploy
+content/        series pages: <language>/<name>.html
+data/           Naruto episodes, topics, speakers and known words
+public/         index.html and js/landing.js (home), naruto.html and js/app.js, js/editor.js, js/model.js (Naruto), css/
 scripts/
-  build-seed.mjs  bundles data/ for the functions (Vercel's build command)
+  build-seed.mjs  bundles data/ and content/ for the functions (Vercel's build command)
   dev-server.mjs  local preview without the Vercel CLI
-vercel.json     build command, static folder, security headers
+vercel.json     build command, static folder, page addresses, security headers
 ```
 
 `public/js/model.js` is shared by the page and the API: furigana handling, the validator and the single-file format.
