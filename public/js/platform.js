@@ -119,21 +119,29 @@ let active = "cabinet";
 
 function renderShell() { mountShell($("shell"), S.me, active); }
 
+let renderToken = 0; // ticket number of the newest navigation
+
 async function render() {
+  const token = ++renderToken;
   const path = location.pathname;
   const route = ROUTES.find(([re]) => re.test(path));
   active = route ? route[1] : "cabinet";
   renderShell();
   const main = $("main");
   main.className = "main" + (active === "grammar" ? " wide" : "");
+  // Each navigation gets a fresh box. An older page that finishes late paints into its own box,
+  // which is no longer on screen, and its click handlers are thrown away with it.
+  const view = document.createElement("div");
+  main.replaceChildren(view);
   try {
-    if (route) await route[2](main, route[0].exec(path));
-    else notFound(main);
+    if (route) await route[2](view, route[0].exec(path));
+    else notFound(view);
   } catch (e) {
-    if (e.status === 401) return showLogin("Your session has ended. Please sign in again.");
-    main.innerHTML = '<div class="state"><h1>Something went wrong</h1><p>' + esc(e.message) + "</p></div>";
+    if (e.status === 401) return showLogin("Your session has ended. Please sign in again."); // a dead session beats any page
+    if (token !== renderToken) return; // an old page failed after we moved on: ignore it
+    view.innerHTML = '<div class="state"><h1>Something went wrong</h1><p>' + esc(e.message) + "</p></div>";
   }
-  if (location.hash !== "#notifications") window.scrollTo(0, 0);
+  if (token === renderToken && location.hash !== "#notifications") window.scrollTo(0, 0);
 }
 
 export function navigate(url) {
