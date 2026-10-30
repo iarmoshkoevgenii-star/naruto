@@ -2,6 +2,7 @@
 import { api, esc, toast } from "./api.js";
 import { createTrainer, clozeOf, sayButton, speak } from "./trainer.js";
 import { dayOf } from "./stats.js";
+import { reportActivity } from "./rewards.js";
 
 const cache = new Map(); // episode id -> data
 const words = n => n + " " + (n === 1 ? "word" : "words");
@@ -29,9 +30,13 @@ export async function trainingPage(main, me) {
   let episodes, marks;
   try {
     const [a, b] = await Promise.all([api("GET", "/api/english"), api("GET", "/api/me?part=marks")]);
-    episodes = a.data.episodes; marks = b.data.marks || {};
+    episodes = a.data.episodes.filter(e => !e.locked); marks = b.data.marks || {};
   } catch (e) { main.innerHTML = '<div class="state"><h1>Training</h1><p>' + esc(e.message) + "</p></div>"; return; }
 
+  if (!episodes.length) {
+    main.innerHTML = '<div class="trn"><div class="page-h"><div><h1>Training</h1><p class="lede">Practise the words from the episodes you study.</p></div></div><div class="card empty-card"><h2>No episodes yet</h2><p>Unlock an episode in the shop, mark the words you don’t know, and train them here.</p><p><a class="p-btn primary" href="/shop" data-nav>Go to the shop</a></p></div></div>';
+    return;
+  }
   const unknownBy = {};
   for (const ep of episodes) {
     const m = marks["en/" + ep.id];
@@ -120,6 +125,7 @@ export async function trainingPage(main, me) {
     if (again) again.addEventListener("click", () => start(res.errs));
     r.addEventListener("click", e => { const s = e.target.closest("[data-say-text]"); if (s) speak(s.dataset.sayText); });
     await save();
+    if (!res.early && me.role === "student") reportActivity("training", "t" + Date.now().toString(36), { answers: res.asked });
   }
 
   $("[data-start]").addEventListener("click", () => start());

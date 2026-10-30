@@ -2,7 +2,10 @@
    Episode pages (/en/<slug>, /ja/naruto) are separate pages that share the top bar. */
 import { api, esc, toast } from "./api.js";
 import { mountShell } from "./shell.js";
-import { cabinetHtml, bindCabinet } from "./cabinet.js";
+import { cabinetHeadHtml, bindPhoto } from "./cabinet.js";
+import { mountRoom } from "./room.js";
+import { shopPage } from "./shop.js";
+import { gameEditorPage } from "./game-editor.js";
 import { teacherHome, studentView } from "./teacher.js";
 import { grammarPage } from "./grammar.js";
 import { trainingPage } from "./training.js";
@@ -32,10 +35,13 @@ async function vocabularyPage(main) {
     canJa ? api("GET", "/api/data").then(r => r.data.episodes).catch(() => null) : Promise.resolve(null),
   ]);
   const ready = { "en/desperate-housewives": null };
-  en.forEach(e => { ready["en/" + e.id] = e.id === "desperate-housewives" ? "Season 1, episode 1" : (e.episode || "Ready"); });
+  const unlock = {};
+  en.forEach(e => { ready["en/" + e.id] = e.id === "desperate-housewives" ? "Season 1, episode 1" : (e.episode || "Ready"); if (e.locked) unlock["en/" + e.id] = e.unlock; });
   if (ja && ja.length) ready["ja/naruto"] = ja.length + " episodes";
   const card = s => {
     const key = s.lang + "/" + s.slug, locked = !me.langs.includes(s.lang), isReady = ready[key] != null && ready[key] !== undefined && !!ready[key];
+    const buy = unlock[key];
+    if (buy && !locked) return '<a class="lib-card buy" data-lang="' + s.lang + '" href="/shop"><span class="lib-lang">' + LANG[s.lang] + "</span><b>" + esc(s.title) + '</b><span class="lib-sub" lang="ru">' + esc(s.sub) + '</span><span class="lib-st"><span class="coin" aria-hidden="true"></span>Unlock in the shop: ' + buy.price + (buy.price === 1 ? " coin" : " coins") + (buy.minLevel > 1 ? ", from Lv " + buy.minLevel : "") + "</span></a>";
     const status = locked ? "Not in your plan yet" : isReady ? ready[key] : "Coming soon";
     const cls = "lib-card" + (isReady && !locked ? " ready" : "") + (locked ? " locked" : "");
     const inner = '<span class="lib-lang">' + LANG[s.lang] + '</span><b>' + esc(s.title) + '</b><span class="lib-sub" lang="' + (s.lang === "ja" ? "ja" : "ru") + '">' + esc(s.sub) + '</span><span class="lib-st">' + (locked ? LOCK : "") + esc(status) + "</span>";
@@ -76,14 +82,21 @@ function homeworkPage(main) {
 async function cabinetPage(main) {
   document.title = "Personal cabinet — Natalia’s Language School";
   if (S.me.role === "teacher") return teacherHome(main);
-  let marks = {};
-  try { marks = (await api("GET", "/api/me?part=marks")).data.marks || {}; } catch { /* the cabinet works without them */ }
+  const [game, marks] = await Promise.all([
+    api("GET", "/api/game").then(r => r.data),
+    api("GET", "/api/me?part=marks").then(r => r.data.marks || {}).catch(() => ({})),
+  ]);
   const draw = () => {
-    main.innerHTML = cabinetHtml(S.me, marks);
-    bindCabinet(main, S.me, { onChange: () => { draw(); renderShell(); } });
+    main.innerHTML = '<div class="cab">' + cabinetHeadHtml(S.me, game.me.progress) + '<section class="card room-card" aria-label="Your room"><div data-room></div></section></div>';
+    bindPhoto(main, S.me, () => { draw(); renderShell(); });
+    return mountRoom(main.querySelector("[data-room]"), {
+      config: game.config, game: { equipped: game.me.equipped, purchases: game.me.owned.map(item => ({ item, price: 0 })) }, gameSummary: game.me, me: S.me, marks,
+      onShop: () => navigate("/shop"),
+      onChange: () => renderShell(),
+    });
   };
-  draw();
-  if (location.hash === "#notifications") { const n = $("notifications"); if (n) n.scrollIntoView({ block: "start" }); }
+  const room = draw();
+  if (location.hash === "#notifications") { history.replaceState(null, "", "/"); room.open("notifications"); }
 }
 
 /* ---------- routing ---------- */
@@ -97,6 +110,8 @@ const ROUTES = [
   [/^\/homework\/?$/, "homework", m => homeworkPage(m)],
   [/^\/training\/?$/, "training", m => trainingPage(m, S.me)],
   [/^\/students\/([a-z0-9]+)\/?$/, "cabinet", (m, a) => S.me.role === "teacher" ? studentView(m, a[1]) : notFound(m)],
+  [/^\/shop\/?$/, "cabinet", m => shopPage(m, S.me, { renderShell })],
+  [/^\/room-editor\/?$/, "cabinet", m => S.me.role === "teacher" ? gameEditorPage(m) : notFound(m)],
 ];
 const notFound = m => { m.innerHTML = '<div class="state"><h1>Not found</h1><p>There is no such page. <a href="/" data-nav>Go to your cabinet</a>.</p></div>'; };
 const handled = path => ROUTES.some(([re]) => re.test(path)) && !/^\/ja\/naruto\/?$/.test(path) && !/^\/en\//.test(path);
@@ -132,7 +147,7 @@ document.addEventListener("click", e => {
   const url = new URL(a.href, location.href);
   if (url.origin !== location.origin || !handled(url.pathname)) return;
   e.preventDefault();
-  if (url.pathname === location.pathname && url.hash) { location.hash = url.hash; const t = document.getElementById(url.hash.slice(1)); if (t) t.scrollIntoView({ block: "start" }); return; }
+  if (url.pathname === location.pathname && url.hash && url.hash !== "#notifications") { location.hash = url.hash; const t = document.getElementById(url.hash.slice(1)); if (t) t.scrollIntoView({ block: "start" }); return; }
   navigate(url.pathname + url.search + url.hash);
 });
 window.addEventListener("popstate", render);

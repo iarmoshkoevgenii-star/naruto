@@ -6,13 +6,15 @@
    POST /api/students?action=delete        {id}
    POST /api/students?action=notify        {to: [ids] | "all", type, title, body?, when?}
    POST /api/students?action=unnotify      {id, nid}
-   POST /api/students?action=class         {id, day} */
+   POST /api/students?action=class         {id, day}      (also gives class XP)
+   POST /api/students?action=complete      {id, nid}      mark a homework reminder completed (gives homework XP once) */
 import { randomBytes } from "node:crypto";
 import { HttpError, json, run, guardWrite, readBody, param, config } from "../lib/http.js";
 import { requireSession } from "../lib/session.js";
 import { loadAccounts, createStudent, updateStudent, deleteStudent, publicAccount } from "../lib/accounts.js";
 import { readUser, updateUser, addActivity, NOTE_TYPES } from "../lib/users.js";
 import { storageInfo } from "../lib/store.js";
+import { award } from "../lib/game.js";
 
 const reserved = () => { const c = config(); return [c.teacher.login, c.demo && c.demo.login, "teacher", "demo", "admin"].filter(Boolean); };
 
@@ -96,7 +98,24 @@ export async function POST(request) {
       const day = body.day;
       if (!/^\d{4}-\d{2}-\d{2}$/.test(day || "") || Date.parse(day + "T12:00:00Z") > Date.now() + 36 * 3600 * 1000) throw new HttpError(400, "Choose a date that is not in the future.");
       const st = await updateUser(body.id, "state", st => addActivity(st, day, "class", 1));
-      return json({ ok: true, activity: st.activity });
+      const xp = await award(body.id, "class", "class:" + day + ":" + randomBytes(3).toString("hex"), {}, { byTeacher: true, day });
+      return json({ ok: true, activity: st.activity, xp: xp.awarded });
+    }
+    if (action === "complete") {
+      const accounts = await loadAccounts({ fresh: true });
+      if (!accounts.students[body.id]) throw new HttpError(404, "Student not found.");
+      let found = null, already = false;
+      await updateUser(body.id, "state", st => {
+        found = st.notifications.find(n => n.id === body.nid && n.type === "homework");
+        if (!found) return null;
+        if (found.completed) { already = true; return null; }
+        found.completed = true; found.completedAt = new Date().toISOString();
+        return st;
+      });
+      if (!found) throw new HttpError(404, "Homework reminder not found.");
+      if (already) return json({ ok: true, xp: 0, already: true });
+      const xp = await award(body.id, "homework", body.nid, {}, { byTeacher: true });
+      return json({ ok: true, xp: xp.awarded });
     }
     throw new HttpError(404, "Unknown action.");
   });

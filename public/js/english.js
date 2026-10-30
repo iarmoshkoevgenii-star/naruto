@@ -5,6 +5,7 @@ import { mountShell } from "./shell.js";
 import { speak } from "./trainer.js";
 import { dayOf } from "./stats.js";
 import { topicPath } from "./grammar-data.js";
+import { reportActivity } from "./rewards.js";
 
 const ID = (location.pathname.match(/^\/en\/([a-z0-9-]+)/) || [])[1] || "";
 const CONTENT = "en/" + ID;
@@ -387,6 +388,19 @@ export const engine = {
   refresh, api, toast, fmt,
 };
 
+/* The end of the episode page counts as watching the episode through. */
+function watchForEnd() {
+  const end = document.createElement("div");
+  end.className = "ep-end"; end.setAttribute("aria-hidden", "true");
+  $("#guide").appendChild(end); // inside the guide: after the last line, not a new grid cell
+  let sent = false;
+  new IntersectionObserver(entries => {
+    if (sent || !entries.some(x => x.isIntersecting) || $("#view-episode").hidden) return;
+    sent = true;
+    reportActivity("episode", CONTENT);
+  }).observe(end);
+}
+
 async function boot() {
   try { ME = (await api("GET", "/api/me")).data; }
   catch (e) { if (e.status === 401) return toLogin(); $("#bootView").textContent = "The page could not load. " + e.message; return; }
@@ -394,7 +408,10 @@ async function boot() {
   let res;
   try { res = await api("GET", "/api/english?id=" + encodeURIComponent(ID)); }
   catch (e) {
-    $("#bootView").innerHTML = '<a class="link" href="/vocabulary">← Vocabulary</a><h1>' + (e.status === 404 ? "Coming soon" : "Not available") + "</h1><p>" + esc(e.status === 404 ? "Episodes of this series are being prepared. They will appear here when they are ready." : e.message) + "</p>";
+    const locked = e.data && e.data.locked, item = locked && e.data.item;
+    $("#bootView").innerHTML = '<a class="link" href="/vocabulary">← Vocabulary</a><h1>' + (locked ? "Unlock this episode first" : e.status === 404 ? "Coming soon" : "Not available") + "</h1><p>" +
+      esc(locked ? item.name + " is in the shop for " + item.price + (item.price === 1 ? " coin" : " coins") + (item.minLevel > 1 ? ", from level " + item.minLevel : "") + ". Once you have it, it stays on your bookshelf." : e.status === 404 ? "Episodes of this series are being prepared. They will appear here when they are ready." : e.message) + "</p>" +
+      (locked ? '<p><a class="btn primary" href="/shop">Go to the shop</a></p>' : "");
     return;
   }
   ETAG = res.res.headers.get("ETag") || "";
@@ -411,6 +428,7 @@ async function boot() {
   renderHero(); renderMap(); renderGuide(); observeScenes(); bindEvents(); afterChange(); setTab("W");
   $("#bootView").hidden = true; $("#appView").hidden = false;
   route();
+  if (ME.role === "student") watchForEnd();
 }
 
 boot();

@@ -1,7 +1,8 @@
 /* Teacher mode: student accounts, reminders, classes, and a read-only view of each student's cabinet. */
 import { api, esc, toast } from "./api.js";
 import { streakInfo, dayOf } from "./stats.js";
-import { cabinetHtml, bindCabinet, LEVELS, fmtWhen } from "./cabinet.js";
+import { cabinetHeadHtml, notesHtml, LEVELS, fmtWhen } from "./cabinet.js";
+import { mountRoom } from "./room.js";
 
 const plural = (n, one, many) => n + " " + (n === 1 ? one : many);
 const lastDay = activity => Object.keys(activity || {}).sort().pop() || null;
@@ -113,7 +114,7 @@ export async function teacherHome(main) {
   const students = data.students;
   const reload = () => teacherHome(main);
   main.innerHTML = '<div class="t-home"><div class="page-h"><div><h1>Students</h1><p class="lede">Create accounts, send reminders and see how your students are doing.</p></div>' +
-    '<div class="t-top"><button type="button" class="p-btn primary" data-add>Add student</button>' + (students.length ? '<button type="button" class="p-btn" data-all>Remind everyone</button>' : "") + "</div></div>" +
+    '<div class="t-top"><a class="p-btn" href="/room-editor" data-nav>Room &amp; shop</a><button type="button" class="p-btn primary" data-add>Add student</button>' + (students.length ? '<button type="button" class="p-btn" data-all>Remind everyone</button>' : "") + "</div></div>" +
     (data.storage.writable ? "" : '<p class="warn">Storage is not connected, so students cannot be added. Connect a Private Blob store to the project in Vercel and redeploy.</p>') +
     (students.length ? '<div class="t-list">' + students.map(rowHtml).join("") + "</div>" : '<div class="card empty-card"><h2>No students yet</h2><p>Add the first student to create their login. They will see their own cabinet after signing in.</p></div>') +
     '<section class="card t-help"><h2>Editing episodes</h2><p>Open an episode from <a href="/vocabulary" data-nav>Vocabulary</a> and switch on <b>Edit</b> in the toolbar above the episode. Select part of a line to mark a word or a grammar point; click an existing mark to change or delete it.</p></section></div>';
@@ -128,27 +129,53 @@ export async function teacherHome(main) {
   }));
 }
 
+function grantForm(s, done) {
+  dialog('<div class="p-dh"><h2>Give XP or coins</h2><p class="note">To ' + esc(s.name) + '. Use a minus sign to take away.</p></div><div class="p-db"><div class="p-row">' +
+    '<label class="p-field"><span>XP</span><input type="number" name="xp" value="0" step="100"></label><label class="p-field"><span>Coins</span><input type="number" name="coins" value="0"></label></div>' +
+    '<label class="p-field"><span>Note</span><input name="note" maxlength="120" placeholder="For example: speaking club"></label></div>' +
+    '<div class="p-df"><span class="grow"></span><button type="button" class="p-btn" data-close>Cancel</button><button type="submit" class="p-btn primary">Give</button></div>',
+    async form => { await api("POST", "/api/game?action=grant", { student: s.id, xp: +v(form, "xp") || 0, coins: +v(form, "coins") || 0, note: v(form, "note") }); toast("Done"); done(); });
+}
+
+function resetForm(s, done) {
+  dialog('<div class="p-dh"><h2>Reset ' + esc(s.name) + '’s game?</h2><p class="note">XP, level, coins, bought items and the room go back to the start. Study activity and marks stay.</p></div>' +
+    '<div class="p-df"><span class="grow"></span><button type="button" class="p-btn" data-close>Cancel</button><button type="submit" class="p-btn danger">Reset</button></div>',
+    async () => { await api("POST", "/api/game?action=reset", { student: s.id }); toast("Game progress reset"); done(); });
+}
+
 export async function studentView(main, id) {
   main.innerHTML = '<p class="loading">Loading…</p>';
-  let s;
-  try { s = (await api("GET", "/api/students?id=" + encodeURIComponent(id))).data.student; }
-  catch (e) { main.innerHTML = '<div class="state"><a class="back" href="/" data-nav>← All students</a><h1>Student</h1><p>' + esc(e.message) + "</p></div>"; return; }
+  let s, game;
+  try {
+    [s, game] = await Promise.all([
+      api("GET", "/api/students?id=" + encodeURIComponent(id)).then(r => r.data.student),
+      api("GET", "/api/game?student=" + encodeURIComponent(id)).then(r => r.data),
+    ]);
+  } catch (e) { main.innerHTML = '<div class="state"><a class="back" href="/" data-nav>← All students</a><h1>Student</h1><p>' + esc(e.message) + "</p></div>"; return; }
   const reload = () => studentView(main, id);
   const words = Object.entries(s.marks).filter(([c]) => c.startsWith("en/")).reduce((a, [, m]) => ({ unknown: a.unknown + Math.max(0, m.words - m.learned), learned: a.learned + m.learned }), { unknown: 0, learned: 0 });
   const marksRows = Object.entries(s.marks).map(([c, m]) => "<tr><td>" + esc(c) + "</td><td>" + m.words + "</td><td>" + m.grammar + "</td><td>" + m.learned + "</td><td>" + (m.savedAt ? esc(fmtWhen(m.savedAt.slice(0, 10))) : "") + "</td></tr>").join("");
-  main.innerHTML = '<a class="back" href="/" data-nav>← All students</a><div class="t-bar"><span class="note">Teacher view of ' + esc(s.name) + '’s cabinet</span><span class="grow"></span><button type="button" class="p-btn small" data-act="remind">Send reminder</button><button type="button" class="p-btn small" data-act="class">Log class</button><button type="button" class="p-btn small" data-act="edit">Edit</button></div>' +
-    cabinetHtml(s, null, { readOnly: true, words }) +
-    '<section class="card"><h2>Marks by episode</h2>' + (marksRows ? '<div class="tbl"><table><thead><tr><th>Content</th><th>Words marked</th><th>Grammar marked</th><th>Learned</th><th>Saved</th></tr></thead><tbody>' + marksRows + "</tbody></table></div>" : '<p class="note">No marks yet.</p>') + "</section>";
-  bindCabinet(main, s, { readOnly: true });
+  main.innerHTML = '<a class="back" href="/" data-nav>← All students</a><div class="t-bar"><span class="note">Teacher view of ' + esc(s.name) + '’s cabinet</span><span class="grow"></span>' +
+    '<button type="button" class="p-btn small" data-act="remind">Send reminder</button><button type="button" class="p-btn small" data-act="class">Log class</button><button type="button" class="p-btn small" data-act="grant">Give XP or coins</button><button type="button" class="p-btn small" data-act="edit">Edit</button><button type="button" class="link-b danger" data-act="reset">Reset game</button></div>' +
+    '<div class="cab">' + cabinetHeadHtml(s, game.me.progress, { readOnly: true }) + '<section class="card room-card"><div data-room></div></section>' +
+    '<section class="card"><div class="card-h"><h2>Reminders</h2></div><div data-notes>' + notesHtml(s.notifications || [], "all", { teacher: true }) + "</div></section>" +
+    '<section class="card"><h2>Marks by episode</h2>' + (marksRows ? '<div class="tbl"><table><thead><tr><th>Content</th><th>Words marked</th><th>Grammar marked</th><th>Learned</th><th>Saved</th></tr></thead><tbody>' + marksRows + "</tbody></table></div>" : '<p class="note">No marks yet.</p>') + "</section></div>";
+  mountRoom(main.querySelector("[data-room]"), {
+    config: game.config, game: { equipped: game.me.equipped, purchases: game.me.owned.map(item => ({ item, price: 0 })) }, gameSummary: game.me, me: s, words, readOnly: true,
+    onShop: () => toast("Students open the shop through this door"),
+  });
   main.querySelector(".t-bar").addEventListener("click", e => {
     const b = e.target.closest("[data-act]");
     if (!b) return;
-    ({ remind: () => reminderForm([s], s.id, reload), class: () => classForm(s, reload), edit: () => studentForm(s, reload) })[b.dataset.act]();
+    ({ remind: () => reminderForm([s], s.id, reload), class: () => classForm(s, reload), grant: () => grantForm(s, reload), edit: () => studentForm(s, reload), reset: () => resetForm(s, reload) })[b.dataset.act]();
   });
   main.querySelector("[data-notes]").addEventListener("click", async e => {
-    const d = e.target.closest("button[data-unnote]");
-    if (!d) return;
-    try { await api("POST", "/api/students?action=unnotify", { id: s.id, nid: d.dataset.unnote }); toast("Reminder deleted"); reload(); }
-    catch (err) { toast(err.message); }
+    const d = e.target.closest("button[data-unnote]"), c = e.target.closest("button[data-complete]");
+    if (!d && !c) return;
+    try {
+      if (d) { await api("POST", "/api/students?action=unnotify", { id: s.id, nid: d.dataset.unnote }); toast("Reminder deleted"); }
+      else { const { data } = await api("POST", "/api/students?action=complete", { id: s.id, nid: c.dataset.complete }); toast(data.xp ? "Completed: +" + data.xp + " XP for " + s.name : "Completed"); }
+      reload();
+    } catch (err) { toast(err.message); }
   });
 }

@@ -17,15 +17,15 @@
       "destination": "/index.html"
     },
     {
-      "source": "/:section(grammar|vocabulary|homework|training|students)",
+      "source": "/:section(grammar|vocabulary|homework|training|students|shop|room-editor)",
       "destination": "/index.html"
     },
     {
-      "source": "/:section(grammar|vocabulary|homework|training|students)/:a",
+      "source": "/:section(grammar|vocabulary|homework|training|students|shop|room-editor)/:a",
       "destination": "/index.html"
     },
     {
-      "source": "/:section(grammar|vocabulary|homework|training|students)/:a/:b",
+      "source": "/:section(grammar|vocabulary|homework|training|students|shop|room-editor)/:a/:b",
       "destination": "/index.html"
     }
   ],

@@ -93,11 +93,13 @@ export function notesHtml(notes, filter = "all", { teacher = false } = {}) {
     const past = n.when && n.when.slice(0, 10) < dayOf();
     return '<li class="nt-' + n.type + (n.read ? "" : " unread") + (past ? " past" : "") + '">' + svg(NOTE_ICON[n.type] || NOTE_ICON.message, "nt-i") +
       '<div class="nt-b"><span class="nt-k">' + NOTE_LABEL[n.type] + (n.when ? ", " + esc(fmtWhen(n.when)) : "") + "</span><b>" + esc(n.title) + "</b>" + (n.body ? "<p>" + esc(n.body) + "</p>" : "") + "</div>" +
-      (teacher ? '<button type="button" class="link-b" data-unnote="' + n.id + '">Delete</button>' : n.read ? "" : '<button type="button" class="link-b" data-read="' + n.id + '">Mark as read</button>') + "</li>";
+      '<span class="nt-acts">' + (n.type === "homework" && n.completed ? '<span class="done-tag">Completed</span>' : "") +
+      (teacher ? (n.type === "homework" && !n.completed ? '<button type="button" class="link-b" data-complete="' + n.id + '">Mark completed</button>' : "") + '<button type="button" class="link-b danger" data-unnote="' + n.id + '">Delete</button>'
+        : n.read ? "" : '<button type="button" class="link-b" data-read="' + n.id + '">Mark as read</button>') + "</span></li>";
   }).join("") + "</ul>";
 }
 
-function heatHtml(activity) {
+export function heatHtml(activity) {
   const weeks = heatmapWeeks(activity), today = dayOf();
   let months = "", lastMonth = "";
   weeks.forEach((col, i) => {
@@ -141,7 +143,7 @@ export function cabinetHtml(me, marks, { readOnly = false, words = null } = {}) 
 }
 
 /* ---------- interactions ---------- */
-async function resizePhoto(file) {
+export async function resizePhoto(file) {
   // Read as a data: URL: the site's security policy allows data: images but not blob: URLs.
   const src = await new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -161,7 +163,7 @@ async function resizePhoto(file) {
   return c.toDataURL("image/jpeg", 0.86);
 }
 
-function bookingDialog() {
+export function bookingDialog() {
   const dlg = document.createElement("dialog");
   dlg.className = "p-dlg";
   const today = dayOf();
@@ -217,5 +219,35 @@ export function bindCabinet(root, me, { readOnly = false, onChange } = {}) {
       toast("Photo updated");
       if (onChange) onChange();
     } catch (err) { toast(err.message); }
+  });
+}
+
+/* ---------- pieces used by the room (diary, messages, calendar) ---------- */
+export const streakCardHtml = me => streakCard(streakInfo(me.activity));
+export const daysCardHtml = me => daysCard(streakInfo(me.activity), me);
+export const levelCardHtml = me => levelCard(me);
+export const wordsCardHtml = (ws, readOnly) => wordsCard(ws, readOnly);
+
+/* Top of the cabinet: photo, name, English level, game level, XP and coins. */
+export function cabinetHeadHtml(me, p, { readOnly = false } = {}) {
+  const since = me.createdAt ? "Student since " + new Date(me.createdAt).toLocaleDateString("en-GB", { month: "long", year: "numeric" }) : "";
+  const lvl = LEVELS.find(l => l[0] === me.level) || LEVELS[0];
+  const pct = Math.round(p.into / p.need * 100);
+  return '<section class="cab-head">' + (readOnly ? avatarHtml(me, "cab-av") : '<button type="button" class="cab-photo" data-photo aria-label="Change photo">' + avatarHtml(me, "cab-av") + '<span class="cab-edit">Change photo</span></button><input type="file" accept="image/png,image/jpeg,image/webp" hidden data-photo-file>') +
+    '<div class="cab-id"><h1>' + esc(me.name) + '</h1><p class="cab-meta"><span class="chip" title="English level">' + esc(lvl[0] + " " + lvl[1]) + "</span>" + (since ? "<span>" + esc(since) + "</span>" : "") + "</p></div>" +
+    '<div class="hud" aria-label="Your progress"><span class="lv-badge">Lv ' + p.level + '</span><div class="xp"><div class="xp-bar" role="progressbar" aria-valuemin="0" aria-valuemax="' + p.need + '" aria-valuenow="' + p.into + '"><i style="width:' + pct + '%"></i></div><span>' + (p.maxed ? "Top level" : p.into + " / " + p.need + " XP") + '</span></div><span class="coins" title="Coins"><span class="coin" aria-hidden="true"></span>' + Math.max(0, p.coins) + "</span>" +
+    (readOnly ? "" : '<a class="p-btn small" href="/shop" data-nav>Shop</a>') + "</div></section>";
+}
+
+export function bindPhoto(root, me, onChange) {
+  const btn = root.querySelector("[data-photo]"), file = root.querySelector("[data-photo-file]");
+  if (!btn || !file) return;
+  btn.addEventListener("click", () => file.click());
+  file.addEventListener("change", async () => {
+    const f = file.files && file.files[0];
+    file.value = "";
+    if (!f) return;
+    try { const dataUrl = await resizePhoto(f); await api("POST", "/api/me?action=photo", { dataUrl }); me.photo = dataUrl; toast("Photo updated"); if (onChange) onChange(); }
+    catch (err) { toast(err.message); }
   });
 }

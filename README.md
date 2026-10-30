@@ -12,6 +12,43 @@ A student platform behind one login. Students see their personal cabinet first, 
 
 Episodes open as their own pages: `/en/desperate-housewives`, and `/ja/naruto` for accounts with Japanese.
 
+## The room game
+
+The personal cabinet is a small pixel-art room. Its objects are the way around:
+
+| Object | Opens |
+|---|---|
+| Computer | messages: reminders about classes, homework and tests |
+| Calendar | this month with deadlines marked, what is coming up, and “Book a class” (a preview) |
+| Diary | level, XP, coins, streak, days studied, English level, words, and the activity map |
+| Bookshelf | the shows and books the student owns |
+| Door | the shop |
+
+Hovering over an object (or reaching it with Tab) makes it glow and grow slightly.
+
+**XP, levels and coins.** Students earn XP for:
+
+- attending a class (the teacher logs it);
+- completed homework (the teacher marks the reminder completed);
+- reaching the end of an episode (once per episode);
+- finishing a word training of at least 5 words (up to 3 a day).
+
+Every 1000 XP is a level, up to 60, and each level gives 100 coins. Students start with 100 coins. All of this, including every limit, is set in **Room & shop → Rules**.
+
+Levels and coins are calculated from each student’s total XP, so changing XP per level or coins per level recalculates everyone straight away.
+
+**The shop** sells shows and books (Desperate Housewives: level 1, 1 coin; a student must own it to open it) and things for the room: furniture skins, rugs, wallpapers and floors, plants, lamps, pictures. A bought item goes into its fixed spot in the room. Rugs, plants, lamps, pictures, the armchair and the clock can be taken out again.
+
+**Room & shop editor** (teacher: Students → Room & shop):
+
+- **Shop list:** rename items, change prices and levels, take items off sale, choose the starting item for each spot, delete your own items.
+- **Uploads:** upload a sprite sheet or a single picture (PNG, WebP, GIF or JPEG, up to 1.5 MB). The pieces are found automatically in your browser; click one, name it, choose where it goes, set price and level, and add it to the shop or make it a starting item. Save changes to publish.
+- **Rules:** levels, XP per level, coins per level, starting coins, and XP, daily limits, minimum words and “only once” for each activity.
+
+In a student’s teacher view you can also give or take XP and coins, and reset their game.
+
+**About the art.** The room currently uses simple placeholder drawings (`public/game/placeholders.png`, made by `scripts/placeholders.py`). The licence of the 0_mem0ry furniture packs asks that they not be used with AI tools, so they were not processed here: upload them yourself in Room & shop → Uploads and make the pieces you want into shop items or starting items. The shop is decorated with the DeadWood Cafe pack by ODDBLOT (free to use, not for resale), shrunk to `public/game/shop/*.webp`.
+
 ## Accounts
 
 - **Teacher.** One shared login from the environment variables `TEACHER_LOGIN` and `TEACHER_PASSWORD`. The older names `DEV_LOGIN` and `DEV_PASSWORD` still work, so an existing deployment needs no changes. The teacher sees the Students page instead of a personal cabinet, and an **Edit** switch on episodes.
@@ -92,14 +129,16 @@ api/                Vercel Functions
   auth.js             sign in, sign out
   me.js               the signed-in user: profile, photo, marks, activity, notifications
   students.js         teacher: students, reminders, classes
-  english.js          English episodes: read, save (teacher)
+  english.js          English episodes: read (students need to own them), save (teacher)
+  game.js             the room game: progress, awards, buying, placing, teacher grants, rules, uploads
   data.js, episode.js, template.js   Naruto (unchanged roles: reading needs Japanese, saving needs the teacher)
   content.js          retired, answers 404; can be deleted
 lib/
   auth.js             credentials, password hashing, signed sessions
   session.js          who is calling: role and language checks
   accounts.js         student accounts (one private document)
-  users.js            per-user documents: state (activity, notifications), marks, photo
+  users.js            per-user documents: state (activity, notifications), marks, photo, game
+  game.js             room game logic: XP awards with limits, purchases, spots, uploaded pictures
   store.js            the store (Vercel Blob or a local folder) and the bundled content
   http.js             responses and request checks
   seed-data.js        generated on each deploy from data/ and content/
@@ -111,10 +150,13 @@ public/
   naruto.html         Naruto page
   js/                 platform.js (router), shell.js (top bar), cabinet.js, teacher.js, grammar.js,
                       grammar-data.js, training.js, trainer.js, stats.js (streaks), english.js,
-                      english-editor.js, english-model.js, app.js + editor.js + model.js (Naruto)
+                      english-editor.js, english-model.js, app.js + editor.js + model.js (Naruto),
+                      game-model.js (room spots, items, rules), room.js, shop.js, game-editor.js, rewards.js
+  game/               placeholders.png + placeholders.js (room art), shop/ (DeadWood Cafe art)
   css/                tokens.css (palette), shell.css, platform.css, english.css, app.css (Naruto)
 scripts/
   build-seed.mjs      bundles data/ and content/ (Vercel’s build command)
+  placeholders.py     draws the placeholder room art (python3 scripts/placeholders.py)
   dev-server.mjs      local preview
 ```
 
