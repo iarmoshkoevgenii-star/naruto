@@ -24,7 +24,8 @@ await loadEnv(".env");
 if (!process.env.BLOB_STORE_ID && !process.env.BLOB_READ_WRITE_TOKEN && process.env.LOCAL_STORE_DIR === undefined) process.env.LOCAL_STORE_DIR = ".local-store";
 
 const { buildSeed } = await import("./build-seed.mjs");
-console.log("Bundled episodes from data/:", buildSeed().join(", ") || "none");
+const built = buildSeed();
+console.log("Bundled: Naruto", built.naruto.join(", ") || "none", "| English", built.english.join(", ") || "none");
 const PORT = Number(process.env.PORT || 3000);
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon" };
 const vercel = JSON.parse(await readFile("vercel.json", "utf8"));

@@ -9,8 +9,24 @@
       "destination": "/naruto.html"
     },
     {
-      "source": "/:lang(ja|en)/:slug",
-      "destination": "/api/content?id=:lang/:slug"
+      "source": "/en/:slug",
+      "destination": "/english.html"
+    },
+    {
+      "source": "/ja/:slug",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/:section(grammar|vocabulary|homework|training|students)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/:section(grammar|vocabulary|homework|training|students)/:a",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/:section(grammar|vocabulary|homework|training|students)/:a/:b",
+      "destination": "/index.html"
     }
   ],
   "headers": [

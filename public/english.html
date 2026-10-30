@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Episode — Natalia’s Language School</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400;1,9..144,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/shell.css">
+<link rel="stylesheet" href="/css/english.css">
+<script type="module" src="/js/english.js"></script>
+</head>
+<body>
+<div id="shell"></div>
+<div class="ep-state" id="bootView" role="status">Loading the episode…</div>
+
+<div id="appView" hidden>
+<nav class="ep-nav" aria-label="Episode sections">
+  <a href="#/episode" data-view="episode">Episode</a>
+  <a href="#/progress" data-view="progress">My progress</a>
+  <a href="#/lessons" data-view="lessons">Lessons</a>
+  <span class="grow"></span>
+  <a href="/training" id="trainLink">Train these words <span class="badge" id="navWords"></span></a>
+</nav>
+
+<section class="view" id="view-episode" aria-label="Episode">
+  <div class="hero">
+    <div class="hero-in">
+      <div>
+        <span class="sticker" id="heroLabel"></span>
+        <h1 id="heroTitle"></h1>
+        <p class="sub" id="heroSub"></p>
+        <ol class="steps">
+          <li><span><b>Watch and follow the text</b>The timecodes match the video. Click a part of the map to jump to that scene.</span></li>
+          <li><span><b>Mark what you don’t know</b>Click a word you don’t know and a grammar note you don’t understand.</span></li>
+          <li><span><b>Train and track your progress</b>Marked words go to Training, and grammar goes into your review plan.</span></li>
+        </ol>
+      </div>
+      <figure class="quote" id="heroQuote" hidden>
+        <blockquote class="q" lang="en" id="quoteEn"></blockquote>
+        <figcaption>
+          <p class="qr" id="quoteRu"></p>
+          <div class="qt"><button class="btn small" type="button" id="quoteJump"></button><button class="btn small say-btn" type="button" id="quoteSay">Listen</button></div>
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+  <div class="map-wrap">
+    <div class="map-cap"><h2>Episode map</h2><span id="mapCap"></span></div>
+    <div class="map" id="map" role="list"></div>
+  </div>
+  <div class="bar">
+    <div class="bar-in" id="barIn">
+      <label class="tg"><input type="checkbox" id="tRu"><span class="sw"></span>Hide translation</label>
+      <label class="tg"><input type="checkbox" id="tHl" checked><span class="sw"></span>Highlight words in the text</label>
+      <label class="tg"><input type="checkbox" id="tCompact"><span class="sw"></span>Lines only</label>
+      <span class="spacer"></span>
+      <button class="btn small open-panel" id="openPanel" type="button">My selection</button>
+    </div>
+  </div>
+  <div class="page">
+    <main id="guide"></main>
+    <aside class="side" id="side" aria-label="My selection">
+      <div class="side-h">
+        <div class="side-title"><h2>My selection</h2><button class="btn small close-panel" id="closePanel" type="button">Close</button></div>
+        <p>Everything you marked as unknown. It is saved to your account.</p>
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab" id="tabW" aria-selected="true" aria-controls="paneW" type="button">Words<b id="cW">0</b></button>
+          <button class="tab" role="tab" id="tabG" aria-selected="false" aria-controls="paneG" type="button">Grammar<b id="cG">0</b></button>
+        </div>
+      </div>
+      <div class="side-b">
+        <div id="paneW" role="tabpanel" aria-labelledby="tabW"></div>
+        <div id="paneG" role="tabpanel" aria-labelledby="tabG" hidden></div>
+      </div>
+      <div class="side-f" id="footW">
+        <a class="btn primary" href="/training" id="goPractice">Train words</a>
+        <button class="btn" type="button" id="clearW">Clear marks</button>
+      </div>
+      <div class="side-f" id="footG" hidden>
+        <button class="btn primary" type="button" id="copyPlan">Copy plan</button>
+        <button class="btn" type="button" id="clearG">Clear marks</button>
+      </div>
+    </aside>
+  </div>
+  <div class="scrim" id="scrim"></div>
+</section>
+
+<section class="view" id="view-progress" aria-label="My progress" hidden>
+  <div class="view-h"><h1>My progress</h1><p>How many words and grammar points of this episode you marked as unknown, and how many words you have learned in Training.</p></div>
+  <div class="panel" id="progressBody"></div>
+</section>
+
+<section class="view" id="view-lessons" aria-label="Lessons" hidden>
+  <div class="view-h"><h1>School lessons</h1><p>Natalia’s lessons on the topics of this episode. Choose the ones you want to take.</p></div>
+  <div class="panel" id="lessonsBody"></div>
+</section>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

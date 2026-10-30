@@ -1,7 +1,8 @@
 /* GET  /api/data               -> role, storage status, topics, speakers, known words, episode list
    POST /api/data?action=topic  {id, topic}                (developer) add or update a grammar topic
    POST /api/data?action=merge  {topics, speakers, known}  (developer) used by the import */
-import { HttpError, json, run, requireSession, guardWrite, readBody, param } from "../lib/http.js";
+import { HttpError, json, run, guardWrite, readBody, param } from "../lib/http.js";
+import { requireSession, requireLang } from "../lib/session.js";
 import { catalog, storageInfo, upsertTopic, mergeCatalog } from "../lib/store.js";
 import { topicErrors, speakerErrors } from "../public/js/model.js";
 
@@ -14,16 +15,16 @@ function tidyTopic(t) {
 }
 
 async function respond(session) {
-  return json({ role: session.role, storage: storageInfo(), ...(await catalog({ fresh: session.role === "dev" })) });
+  return json({ role: session.role, storage: storageInfo(), ...(await catalog({ fresh: session.role === "teacher" })) });
 }
 
 export async function GET(request) {
-  return run(async () => respond(requireSession(request)));
+  return run(async () => { const s = await requireSession(request); requireLang(s, "ja"); return respond(s); });
 }
 
 export async function POST(request) {
   return run(async () => {
-    const session = requireSession(request, "dev");
+    const session = await requireSession(request, "teacher");
     guardWrite(request);
     const action = param(request, "action");
     const body = (await readBody(request, 3_000_000)) || {};

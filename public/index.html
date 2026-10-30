@@ -1,44 +1,41 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>Разборы сериалов</title>
+<title>Natalia’s Language School</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Shippori+Mincho:wght@500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/app.css">
-<link rel="stylesheet" href="/css/landing.css">
-<script type="module" src="/js/landing.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Shippori+Mincho:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/shell.css">
+<link rel="stylesheet" href="/css/platform.css">
+<script type="module" src="/js/platform.js"></script>
 </head>
 <body>
-
-<div class="boot" id="bootView" role="status">Загрузка…</div>
+<div class="boot" id="bootView" role="status">Loading…</div>
 
 <main class="login" id="loginView" hidden>
   <div class="login-card">
-    <div class="login-map" aria-hidden="true">
-      <i class="k-song" style="flex-grow:100"></i><i class="k-recap" style="flex-grow:150"></i><i class="k-scene" style="flex-grow:190"></i><i class="k-scene alt" style="flex-grow:160"></i><i class="k-break" style="flex-grow:40"></i><i class="k-scene" style="flex-grow:210"></i><i class="k-scene alt" style="flex-grow:140"></i><i class="k-song" style="flex-grow:90"></i><i class="k-preview" style="flex-grow:30"></i>
-    </div>
-    <h1>Разборы сериалов</h1>
-    <p class="login-lede">Реплики, слова для карточек и грамматика для повторения: японский и английский по сериалам.</p>
+    <div class="login-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <h1>Natalia’s Language School</h1>
+    <p class="login-lede">Sign in to your cabinet: classes, homework, training and the series you study with.</p>
     <form id="loginForm" class="login-form" novalidate>
-      <label for="loginName">Логин</label>
+      <label for="loginName">Login</label>
       <input id="loginName" name="login" autocomplete="username" autocapitalize="none" spellcheck="false" required>
-      <label for="loginPass">Пароль</label>
+      <label for="loginPass">Password</label>
       <input id="loginPass" name="password" type="password" autocomplete="current-password" required>
       <p class="login-err" id="loginErr" role="alert" hidden></p>
-      <button class="btn primary login-go" type="submit">Войти</button>
+      <button class="p-btn primary login-go" type="submit">Sign in</button>
     </form>
   </div>
 </main>
 
-<div class="home" id="homeView" hidden>
-  <div class="home-top"><a class="home-brand" href="/">Разборы сериалов</a><span class="acct" id="acct"></span></div>
-  <main class="home-main" id="homeMain" tabindex="-1"></main>
+<div id="appView" hidden>
+  <div id="shell"></div>
+  <main class="main" id="main" tabindex="-1"></main>
 </div>
-
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>

@@ -1,15 +1,17 @@
 /* GET /api/episode?num=9[&src=seed]  -> the episode JSON with an ETag
    PUT /api/episode?num=9  {episode, baseEtag, force}  (developer) save after validation */
-import { HttpError, json, text, run, requireSession, guardWrite, readBody, param, episodeNum } from "../lib/http.js";
+import { HttpError, json, text, run, guardWrite, readBody, param, episodeNum } from "../lib/http.js";
+import { requireSession, requireLang } from "../lib/session.js";
 import { catalog, readEpisode, writeEpisode, Conflict } from "../lib/store.js";
 import { episodeErrors, clean } from "../public/js/model.js";
 
 export async function GET(request) {
   return run(async () => {
-    const session = requireSession(request);
+    const session = await requireSession(request);
+    requireLang(session, "ja");
     const num = episodeNum(request);
     const r = await readEpisode(num, {
-      fresh: session.role === "dev",
+      fresh: session.role === "teacher",
       src: param(request, "src") || "auto",
       ifNoneMatch: request.headers.get("if-none-match"),
     });
@@ -22,7 +24,7 @@ export async function GET(request) {
 
 export async function PUT(request) {
   return run(async () => {
-    requireSession(request, "dev");
+    await requireSession(request, "teacher");
     guardWrite(request);
     const num = episodeNum(request);
     const body = (await readBody(request, 4_000_000)) || {};

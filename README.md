@@ -1,151 +1,127 @@
-# Naruto dialogue study site — Vercel edition
+# Natalia’s Language School
 
-The same study site as `naruto_study_site.html`, hosted on Vercel behind a login, with two roles:
+A student platform behind one login. Students see their personal cabinet first, with five tabs above it:
 
-- **Reader** (`USER_LOGIN` / `USER_PASSWORD`): the site exactly as before — episodes, furigana, hidden translations, the grammar plan and Anki cards.
-- **Developer** (`DEV_LOGIN` / `DEV_PASSWORD`): everything a reader has, plus an edit mode for marking words and grammar in the lines, and a data panel for downloading and uploading the whole site as one file.
+| Tab | Address | What it is |
+|---|---|---|
+| Grammar | `/grammar` | Broad topic areas first, then the topics of one area, then a topic page with a hideable topic list on the left. Lesson texts are not written yet. |
+| Vocabulary | `/vocabulary` | The library: TV series, plus Movies and Other as placeholder sections. Japanese is visible but locked for students. |
+| Homework | `/homework` | Empty for now. |
+| Training | `/training` | The word trainer from the Desperate Housewives page: your unknown words from all episodes, or all words of one episode. |
+| Personal cabinet | `/` | Photo, study streak, days studied, level (preview), next class and “Book a class” (preview), words to learn, notifications, a year of study activity. |
 
-## Pages
+Episodes open as their own pages: `/en/desperate-housewives`, and `/ja/naruto` for accounts with Japanese.
 
-| Address | What it is |
+## Accounts
+
+- **Teacher.** One shared login from the environment variables `TEACHER_LOGIN` and `TEACHER_PASSWORD`. The older names `DEV_LOGIN` and `DEV_PASSWORD` still work, so an existing deployment needs no changes. The teacher sees the Students page instead of a personal cabinet, and an **Edit** switch on episodes.
+- **Students.** Created by the teacher on the Students page; there is no self-signup. Passwords are stored as salted scrypt hashes. Changing a password or deleting a student signs that account out everywhere.
+- **Demo student (optional).** If `USER_LOGIN` and `USER_PASSWORD` are set, they work as one built-in English-only student.
+
+Everything a student does (marks, training results, photo, activity) is saved to their account, so it is the same on every device.
+
+## Deploy or update
+
+The repository top level must contain `vercel.json`, `package.json`, `api/`, `public/` and the other folders directly, not inside another folder.
+
+**First deploy:** import the repository in Vercel, add the environment variables below, deploy, then add storage (next section) and redeploy.
+
+**Updating an existing deployment:** on GitHub, open the repository’s main page, choose **Add file → Upload files**, drag in the *contents* of the new folder, and commit. Files with the same names are replaced and new ones added. Uploading never deletes files: see the release notes you received for files that are safe to remove.
+
+| Variable | Value |
 |---|---|
-| `/` | Home: login, then a language, then a series |
-| `/ja/naruto` | The Naruto study site (`public/naruto.html`) |
-| `/en/desperate-housewives` | Desperate Housewives, episode 1 (`content/en/desperate-housewives.html`) |
-| `/ja/bleach`, `/ja/jojo`, `/ja/one-piece`, `/en/friends`, `/en/sherlock-holmes` | Series without content yet: an empty page |
+| `TEACHER_LOGIN` (or `DEV_LOGIN`) | the teacher’s login |
+| `TEACHER_PASSWORD` (or `DEV_PASSWORD`) | the teacher’s password |
+| `SESSION_SECRET` | 32 or more random characters; generate with `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"` |
+| `USER_LOGIN`, `USER_PASSWORD` | optional demo student |
 
-Every page needs a login. Series pages in `content/` are served by `api/content.js` only to a signed-in session, so their built-in data is never public.
+### Storage
 
-### Adding a series page
+Student accounts and everything students do need a private Vercel Blob store. In the project: **Storage → Create → Blob**, access **Private**, connect it to the project, then **Deployments → ⋯ → Redeploy**. Without storage, only the teacher can sign in, and nothing can be saved.
 
-1. Put the page, a single self-contained HTML file, into `content/<language>/<name>.html`, for example `content/en/friends.html`. The name must be the series' address name in lowercase Latin letters, digits and hyphens.
-2. If the series is not in the list yet, add it to `CATALOG` at the top of `public/js/landing.js` (`slug` is the same name, `title` and `orig` are the Russian and original titles, `note` is the optional status line).
-3. Commit. The deploy bundles the page, and the home page marks the series as ready on its own.
+**Where the data lives.** Vercel Blob stores data outside Russia. Russian law requires Russian citizens’ personal data to be stored in Russia, so use this deployment with test accounts only, and move to hosting in Russia before adding real students. The storage code sits behind one small interface in `lib/store.js` (`read` and `write` with versions), so it can be pointed at another store.
 
-Inline `<script>` blocks are moved into a separate file automatically during the build (the site's security policy does not run inline scripts), and a "← Все сериалы" link is added at the top of the page.
+## Teacher guide
 
-## Deploy
+- **Add a student:** Students → **Add student**: name, login, level, and whether they may open Japanese. A password is generated; copy the details and send them to the student.
+- **Reminders:** **Remind** on a student, or **Remind everyone**: class, homework, test or message, with an optional date and time. They appear in the notification centre of the student’s cabinet (inside the site only).
+- **Classes:** **Log class** records an attended class. It counts as a study day for the streak and the activity map.
+- **A student’s progress:** click the name to see their cabinet as they see it, their marks per episode, and to delete reminders.
+- **Editing episodes:** open an episode, switch on **Edit**, then:
+  - select part of a line and choose **＋ Word** or **＋ Grammar**;
+  - click an existing word or note to change or delete it;
+  - use **Edit line** to fix the text or the translation.
 
-### 1. Put the files in a Git repository
+  Every save is checked before it is stored. If two tabs edit the same episode, the second save is refused and the page loads the newer version.
+- **Naruto** keeps its own tools (Russian interface): editing, and **Данные** for downloading the single-file site for Claude and uploading the result.
 
-Create a new GitHub repository and upload the contents of this folder (keep the folder structure). `vercel.json`, `package.json`, `api/` and `public/` must sit at the top of the repository, not inside another folder; otherwise Vercel deploys an empty site and every page shows `404: NOT_FOUND`. If your files are already inside a subfolder, set **Settings → Build and Deployment → Root Directory** to that folder's name instead, and redeploy. `node_modules/`, `.env.local` and `.local-store/` are ignored on purpose.
+## Streaks and study days
 
-### 2. Import the repository into Vercel
+- A day counts as studied when the student trains words, marks words or grammar in an episode, or attends a logged class.
+- The streak counts studied days in a row. Today never breaks it while the day is still going.
+- **Free skip:** one missed day is covered automatically, and the skip comes back 7 days after it was used.
+- The activity map shows the last 12 months; darker squares mean more study that day.
 
-1. On vercel.com choose **Add New → Project** and import the repository.
-2. Leave the build settings as they are. `vercel.json` already selects the "Other" preset, no build command, and `public/` as the output directory.
-3. Before clicking **Deploy**, open **Environment Variables** and add the five variables below.
-4. Click **Deploy**.
+## Adding content
 
-| Variable | What it is |
-|---|---|
-| `USER_LOGIN` | Reader login, for example `student` |
-| `USER_PASSWORD` | Reader password |
-| `DEV_LOGIN` | Developer login, for example `jenya` |
-| `DEV_PASSWORD` | Developer password, different from the reader's |
-| `SESSION_SECRET` | 32 or more random characters. Generate one with `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"` |
-
-Logins are not case-sensitive; passwords are. Changing a role's password signs out everyone using that role; changing `SESSION_SECRET` signs out everyone.
-
-### 3. Connect storage for edits
-
-Without storage the site works for reading, but developer edits cannot be saved (edit mode shows a warning).
-
-1. In the project, open **Storage → Create → Blob**.
-2. Set access to **Private** and create the store. The site stores everything as private files, so a store created as Public will not work, and the access type cannot be changed later.
-3. Connect it to the project for Production (and Preview if you use preview deployments).
-4. Open **Deployments**, and on the latest deployment choose **⋯ → Redeploy**. Variables added by the connection only reach new deployments.
-
-The connection adds `BLOB_STORE_ID` (and `BLOB_READ_WRITE_TOKEN`) to the project. Do not set them by hand.
-
-### Deploying from the command line instead
-
-```bash
-npm i -g vercel
-cd naruto-study-site
-vercel link                                   # create or pick the project
-vercel env add USER_LOGIN production          # repeat for the other four variables
-vercel blob create-store naruto-data --access private --yes
-vercel --prod
-```
-
-## Using developer mode
-
-Sign in with the developer login and switch on **Правка** in the toolbar.
-
-- **Mark a word for translation.** Select part of a Japanese line and press **＋ Слово** in the bar that appears. The word and its reading are filled in from the selection and its furigana; change them to the dictionary form if needed (倒せない → 倒す), add 2–4 translations separated by «; », and press **Добавить слово**. The result is the same chip readers click to build Anki cards, with the same six card fields.
-- **Mark grammar.** Select the form and press **＋ Грамматика**. Pick a topic from the list (the search box filters it; a topic is suggested when the same form is already explained elsewhere), or create one with **Новая тема…**, write a one- or two-sentence explanation, and press **Добавить разбор**. The result is the same tickable note that builds the review plan.
-- **Without selecting text.** Every line has **＋ Слово**, **＋ Грамматика** and **Изменить** buttons in edit mode. **Изменить** edits the Japanese text (with furigana as `漢字[かんじ]`) and the Russian translation.
-- **Change or delete a mark.** In edit mode, click a word chip or a grammar note.
-- **See it as a reader.** Switch **Правка** off: the page behaves exactly like the reader's.
-
-Each save is checked with the same rules as the study-site skill's `site_tool.py`, so the data stays compatible with it. If two tabs edit the same episode, the second save is refused and the page loads the newer version, so nothing is overwritten silently.
-
-## Adding new episodes with Claude
-
-The naruto-study-site skill keeps working unchanged; it just receives the file from the site.
-
-1. **Данные → Скачать файл сайта.** This downloads `naruto_study_site.html` with every episode and all your edits, in the same format as before. It also opens offline and doubles as a backup.
-2. Give Claude that file and the episode's `.ass` subtitles, as before.
-3. **Данные → Загрузить файл сайта** with the file Claude returns. New episodes are ticked; episodes that differ from the site are unticked by default, because they may contain edits you made on the site after downloading; unchanged ones are skipped. Topics, speakers and known words from the file are merged in.
-
-## Where the data lives
-
-- `data/` in the repository holds the episodes the site was deployed with, plus topics, speakers and the known-words list. On every deploy, `scripts/build-seed.mjs` bundles it into `lib/seed-data.js`, which the functions import; edit the files in `data/`, never `seed-data.js`. Episode 18 currently contains only its first five minutes.
-- The private Blob store holds every episode edited or uploaded in developer mode, plus added topics, speakers and known words. For the same episode, the stored version wins.
-- Practical consequence: after you start editing on the site, bring in changes through **Загрузить файл сайта**, not by editing `data/` in the repository, because an episode saved in the store hides its copy in `data/`. Brand-new episode files added to `data/episodes/` and redeployed do appear.
-- Readers may see an edit up to about a minute later (Vercel's cache in front of the store); the developer view always reads the latest version.
-- Ticks and cards are kept only in the open page, as in the original: export the plan or the cards before closing it.
+- **English episodes:** put the episode’s HTML file, in the Desperate Housewives format (a `const DATA = {...};` block), into `content/en/<name>.html`, with an optional `content/en/<name>.meta.json` for the title and hero text (see the Desperate Housewives one). It appears at `/en/<name>` after the next deploy. To show it in the Vocabulary library as a series card, add it to `SERIES` at the top of `public/js/platform.js`.
+- **Naruto episodes:** as before, through the Naruto page’s **Данные** menu, or as `data/episodes/epNN.json` files.
+- **Grammar topics:** `public/js/grammar-data.js`. Topic ids that match the episode data (such as `present_simple`) make the grammar notes in episodes link to those pages.
 
 ## Local preview
 
 ```bash
 npm install
-cp .env.example .env.local      # fill in the logins and SESSION_SECRET
-npm run dev                     # http://localhost:3000, edits are saved in .local-store/
+cp .env.example .env.local      # fill in the teacher login and SESSION_SECRET
+npm run dev                     # http://localhost:3000, data is kept in .local-store/
 ```
 
-`npm run dev` runs the same API code as Vercel. To test against your real Blob store instead, copy `BLOB_READ_WRITE_TOKEN` from the store's settings into `.env.local` and delete the `LOCAL_STORE_DIR` line.
+`npm run dev` runs the same API code as Vercel and applies the same page addresses and security headers.
 
 ## Security
 
-- Episodes and all other data are served only by the API, and only to a signed-in session. The page's HTML, CSS and JavaScript are public but contain no data.
-- Every change requires a developer session and is checked on the server; a reader who calls the API directly gets a 403.
-- The session is an HttpOnly, SameSite=Lax, Secure cookie, signed with `SESSION_SECRET`, valid for 30 days.
-- Changes are accepted only from the site's own pages (custom request header plus an Origin check).
-- Failed logins are slowed down, but there is no lockout: use long passwords.
+- No page shows any data before signing in. Episodes, accounts and student data are served only by the API, to a signed-in session, and each request checks the role (teacher or student) and the student’s languages.
+- Sessions are HttpOnly, SameSite=Lax, Secure cookies signed with `SESSION_SECRET`, valid for 30 days.
+- Changes are accepted only from the site’s own pages (custom request header and an Origin check).
+- Failed logins are slowed down; use long passwords.
 
 ## Project layout
 
 ```
-api/            Vercel Functions
-  auth.js         sign in, sign out, current role
-  content.js      series pages from content/, after login
-  data.js         topics, speakers, known words, episode list; add topics; merge on upload
-  episode.js      read and save one episode
-  template.js     the single-file engine used by "Скачать файл сайта"
+api/                Vercel Functions
+  auth.js             sign in, sign out
+  me.js               the signed-in user: profile, photo, marks, activity, notifications
+  students.js         teacher: students, reminders, classes
+  english.js          English episodes: read, save (teacher)
+  data.js, episode.js, template.js   Naruto (unchanged roles: reading needs Japanese, saving needs the teacher)
+  content.js          retired, answers 404; can be deleted
 lib/
-  auth.js         credentials and the signed session cookie
-  http.js         responses and request checks
-  store.js        data/ plus the private Blob store (or a local folder for npm run dev)
-  standalone-template.html
-  seed-data.js    generated from data/ on each deploy
-  content-data.js generated from content/ on each deploy
-content/        series pages: <language>/<name>.html
-data/           Naruto episodes, topics, speakers and known words
-public/         index.html and js/landing.js (home), naruto.html and js/app.js, js/editor.js, js/model.js (Naruto), css/
+  auth.js             credentials, password hashing, signed sessions
+  session.js          who is calling: role and language checks
+  accounts.js         student accounts (one private document)
+  users.js            per-user documents: state (activity, notifications), marks, photo
+  store.js            the store (Vercel Blob or a local folder) and the bundled content
+  http.js             responses and request checks
+  seed-data.js        generated on each deploy from data/ and content/
+content/en/         English episodes
+data/               Naruto episodes, topics, speakers, known words
+public/
+  index.html          the platform (login, cabinet, tabs)
+  english.html        English episode page
+  naruto.html         Naruto page
+  js/                 platform.js (router), shell.js (top bar), cabinet.js, teacher.js, grammar.js,
+                      grammar-data.js, training.js, trainer.js, stats.js (streaks), english.js,
+                      english-editor.js, english-model.js, app.js + editor.js + model.js (Naruto)
+  css/                tokens.css (palette), shell.css, platform.css, english.css, app.css (Naruto)
 scripts/
-  build-seed.mjs  bundles data/ and content/ for the functions (Vercel's build command)
-  dev-server.mjs  local preview without the Vercel CLI
-vercel.json     build command, static folder, page addresses, security headers
+  build-seed.mjs      bundles data/ and content/ (Vercel’s build command)
+  dev-server.mjs      local preview
 ```
-
-`public/js/model.js` is shared by the page and the API: furigana handling, the validator and the single-file format.
 
 ## Troubleshooting
 
-- **The login page says "Сайт не настроен…".** A variable is missing or `SESSION_SECRET` is shorter than 32 characters. Add it and redeploy.
-- **Edit mode says "Хранилище не подключено".** Connect a Private Blob store (step 3) and redeploy.
-- **"Хранилище Vercel Blob вернуло ошибку…".** The store is Public, or it is not connected to this environment (Production or Preview). Create a Private store and connect it.
-- **"Этот эпизод уже изменили в другой вкладке…".** Another tab or device saved this episode first. The page has loaded the newer version; repeat your change.
-- **Costs.** On the free Hobby plan, Blob includes 1 GB of storage and a monthly allowance of reads and writes; a personal study site stays well within it. Each developer page load reads stored episodes uncached, so they are always current.
+- **The login page says “The site is not set up yet”.** A variable is missing or `SESSION_SECRET` is shorter than 32 characters. Add it and redeploy.
+- **“Storage is not connected”.** Connect a Private Blob store and redeploy.
+- **A page shows `404: NOT_FOUND`.** The files are inside a subfolder of the repository; move them to the top level, or set Settings → Build and Deployment → Root Directory to that folder.
+- **“This episode was changed in another tab”.** Someone saved first; the page loaded the newer version. Repeat your change.
+- **Costs and plans.** Vercel’s free Hobby plan is for non-commercial use; a paid school needs the Pro plan.

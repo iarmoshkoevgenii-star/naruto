@@ -1,0 +1,28 @@
+/* Natalia's Language School: shared palette and fonts (toned down; the final palette comes later). */
+:root{
+  color-scheme: light;
+  --mist:#E4EBEB; --sheet:#F4F7F6; --sheet-2:#EAF0EF;
+  --ink:#17242A; --ink-2:#44565D; --muted:#6E8188; --line:#C9D5D5;
+  --water:#1E5C62; --water-soft:#D3E3E2;
+  --orange:#E46F12; --orange-ink:#8A3E00; --orange-soft:#FBE4CF;
+  --good:#2F7A52; --good-soft:#D9ECDF;
+  --amber:#E2BD5B; --amber-soft:#F5EACB;
+  --hatch:#B8C7C7;
+  --heat-0:#DDE6E5; --heat-1:#B5D3CF; --heat-2:#7DB0AB; --heat-3:#3F8580; --heat-4:#1E5C62;
+  --jp:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+  --ui:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --en:"Fraunces",Georgia,"Times New Roman",serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --mist:#0E191D; --sheet:#132227; --sheet-2:#182B31;
+    --ink:#DCE6E6; --ink-2:#AFC0C2; --muted:#829699; --line:#2A3E44;
+    --water:#6BB8B8; --water-soft:#1C3A3E;
+    --orange:#F2913A; --orange-ink:#FFC48D; --orange-soft:#3A2614;
+    --good:#74C69A; --good-soft:#173326;
+    --amber:#C9A646; --amber-soft:#3A3318;
+    --hatch:#2E4449;
+    --heat-0:#1A2B30; --heat-1:#1F4A4C; --heat-2:#2E6E6E; --heat-3:#4F9A98; --heat-4:#8FD1CD;
+  }
+}

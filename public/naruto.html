@@ -9,33 +9,18 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Shippori+Mincho:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/app.css">
+<link rel="stylesheet" href="/css/shell.css">
 <script type="module" src="/js/app.js"></script>
 </head>
 <body>
+<div id="shell"></div>
 
 <div class="boot" id="bootView" role="status">Загрузка…</div>
 
-<main class="login" id="loginView" hidden>
-  <div class="login-card">
-    <div class="login-map" aria-hidden="true">
-      <i class="k-song" style="flex-grow:100"></i><i class="k-recap" style="flex-grow:150"></i><i class="k-scene" style="flex-grow:190"></i><i class="k-scene alt" style="flex-grow:160"></i><i class="k-break" style="flex-grow:40"></i><i class="k-scene" style="flex-grow:210"></i><i class="k-scene alt" style="flex-grow:140"></i><i class="k-song" style="flex-grow:90"></i><i class="k-preview" style="flex-grow:30"></i>
-    </div>
-    <h1>Наруто<span class="jp" lang="ja">台詞</span></h1>
-    <p class="login-lede">Разбор диалогов: реплики с фуриганой, слова для Anki и грамматика для плана повторения.</p>
-    <form id="loginForm" class="login-form" novalidate>
-      <label for="loginName">Логин</label>
-      <input id="loginName" name="login" autocomplete="username" autocapitalize="none" spellcheck="false" required>
-      <label for="loginPass">Пароль</label>
-      <input id="loginPass" name="password" type="password" autocomplete="current-password" required>
-      <p class="login-err" id="loginErr" role="alert" hidden></p>
-      <button class="btn primary login-go" type="submit">Войти</button>
-    </form>
-  </div>
-</main>
+
 
 <div id="appView" hidden>
 <header class="hero">
-  <a class="home-link" href="/#ja">← Все сериалы</a>
   <nav class="eps" id="eps" aria-label="Эпизоды"></nav>
   <h1 id="epTitle"></h1>
   <p class="lede" id="epLede"></p>
@@ -65,7 +50,6 @@
     <label class="tg"><input type="checkbox" id="tCompact"><span class="sw"></span>Только реплики</label>
     <span class="spacer"></span>
     <button class="count-btn" id="openPlan" type="button">Подборка <b id="countMini">0</b></button>
-    <span class="acct" id="acct"></span>
   </div>
 </div>
 

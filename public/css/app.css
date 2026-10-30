@@ -390,3 +390,7 @@ body.editing .ed-tools{display:inline-flex}
 /* ---------- link back to the home page ---------- */
 .home-link{display:inline-block;margin-bottom:14px;font-size:14px;font-weight:600;color:var(--ink-2);text-decoration:none}
 .home-link:hover{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+
+.ep-locked{max-width:640px;margin:60px auto;padding:0 20px;text-align:left}
+.ep-locked h1{font-size:28px;margin:8px 0}
+.ep-locked p{color:var(--ink-2)}

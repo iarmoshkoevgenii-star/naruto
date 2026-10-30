@@ -1,4 +1,6 @@
 import * as M from "./model.js";
+import { mountShell } from "./shell.js";
+import { dayOf } from "./stats.js";
 
 const { esc, furi, plain, toSec, stripParen, kanaize, options, LV_ORDER } = M;
 const checkSvg = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5 5 9.2 10.2 3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -37,7 +39,7 @@ async function api(method, url, body) {
   catch { throw new ApiError(0, "Нет связи с сервером. Проверьте интернет и повторите."); }
   const isJson = (res.headers.get("content-type") || "").includes("application/json");
   const data = isJson ? await res.json().catch(() => null) : null;
-  if (res.status === 401 && S.role) showLogin("Сессия закончилась. Войдите снова.");
+  if (res.status === 401) { location.href = "/?next=" + encodeURIComponent(location.pathname + location.hash); }
   if (!res.ok) throw new ApiError(res.status, (data && data.error) || "Ошибка " + res.status, data);
   return { data, res };
 }
@@ -71,7 +73,44 @@ function indexEpisode(ep) {
   }));
 }
 
-function installEpisode(ep) { S.eps.set(ep.num, ep); indexEpisode(ep); }
+function installEpisode(ep) { S.eps.set(ep.num, ep); indexEpisode(ep); applySavedMarks(); }
+
+/* ---------- ticks and cards saved to the account ---------- */
+const MARKS = { ready: false, pending: null, timer: 0, added: 0 };
+async function loadMarks() {
+  try {
+    const m = (await api("GET", "/api/me?part=marks&content=ja%2Fnaruto")).data.marks;
+    if (m) MARKS.pending = { selected: new Set(m.selected || []), cards: Array.isArray(m.cards) ? m.cards : [] };
+  } catch (_) { /* works without saved marks */ }
+  MARKS.ready = true;
+}
+function applySavedMarks() {
+  const p = MARKS.pending;
+  if (!p) return;
+  let changed = false;
+  for (const id of [...p.selected]) if (NOTE_INDEX[id]) { selected.add(id); p.selected.delete(id); changed = true; }
+  p.cards = p.cards.filter(([w, c]) => {
+    if (!c || !VOCAB[c.vkey] || VOCAB[c.vkey].w !== w) return true;
+    if (!CARDS.has(w)) CARDS.set(w, { vkey: c.vkey, choice: c.choice ?? 0, custom: c.custom || "" });
+    changed = true; return false;
+  });
+  if (changed) { renderPlan(); renderCards(); updateCounts(); }
+}
+function saveMarksSoon(added = 0) {
+  if (!MARKS.ready) return;
+  MARKS.added += Math.max(0, added);
+  clearTimeout(MARKS.timer);
+  MARKS.timer = setTimeout(saveMarks, 1200);
+}
+async function saveMarks(keepalive = false) {
+  MARKS.timer = 0;
+  const p = MARKS.pending || { selected: new Set(), cards: [] };
+  const body = { content: "ja/naruto", marks: { selected: [...selected, ...p.selected], cards: [...CARDS.entries()].map(([w, c]) => [w, { vkey: c.vkey, choice: c.choice, custom: c.custom }]).concat(p.cards) } };
+  if (MARKS.added && S.role === "student") body.activity = { day: dayOf(), kind: "study", n: MARKS.added };
+  MARKS.added = 0;
+  try { await api("POST", "/api/me?action=marks", body); } catch (e) { toast("Отметки не сохранились: " + e.message); }
+}
+window.addEventListener("pagehide", () => { if (MARKS.timer) { clearTimeout(MARKS.timer); saveMarks(true); } });
 
 function fetchEpisode(num) {
   if (S.eps.has(num)) return Promise.resolve(S.eps.get(num));
@@ -138,7 +177,7 @@ function noteHtml(id, g) {
 }
 
 /* Developer-only controls inside the speaker row; empty for readers. */
-const lineTools = lid => S.role !== "dev" ? "" :
+const lineTools = lid => S.role !== "teacher" ? "" :
   '<span class="ed-tools"><button type="button" data-ed="line" data-lid="' + lid + '">Изменить</button><button type="button" data-ed="v" data-lid="' + lid + '">＋ Слово</button><button type="button" data-ed="g" data-lid="' + lid + '">＋ Грамматика</button></span>';
 
 function lineHtml(ln) {
@@ -274,7 +313,9 @@ function planText() {
 /* ---------- карточки Anki ---------- */
 function toggleWord(vkey) {
   const v = VOCAB[vkey]; if (!v) return;
-  if (CARDS.has(v.w)) CARDS.delete(v.w); else CARDS.set(v.w, { vkey, choice: 0, custom: "" });
+  const adding = !CARDS.has(v.w);
+  if (!adding) CARDS.delete(v.w); else CARDS.set(v.w, { vkey, choice: 0, custom: "" });
+  saveMarksSoon(adding ? 1 : 0);
   document.querySelectorAll('button.vc[data-w="' + CSS.escape(v.w) + '"]').forEach(b => {
     const on = CARDS.has(v.w); b.setAttribute("aria-pressed", on); b.querySelector(".mk").textContent = on ? "✓" : "+";
     b.title = on ? "Убрать из карточек" : "Добавить в карточки Anki";
@@ -341,7 +382,7 @@ function remapSelections(before) {
     c.vkey = hit;
     if (typeof c.choice === "number" && c.choice >= VOCAB[hit].opts.length) c.choice = 0;
   }
-  renderPlan(); renderCards(); updateCounts();
+  renderPlan(); renderCards(); updateCounts(); saveMarksSoon();
 }
 
 function replaceEpisode(ep) {
@@ -391,43 +432,10 @@ async function commitLine(lid, mutate) {
 /* ===================== views ===================== */
 function showView(name) {
   $("bootView").hidden = name !== "boot";
-  $("loginView").hidden = name !== "login";
   $("appView").hidden = name !== "app";
 }
 
-function showLogin(message) {
-  showView("login");
-  const err = $("loginErr");
-  err.textContent = message || "";
-  err.hidden = !message;
-  setTimeout(() => $("loginName").focus(), 0);
-}
-
-function renderAccount() {
-  $("acct").innerHTML = (S.role === "dev" ? '<span class="role">Разработчик</span>' : '') + '<button type="button" class="link-btn" id="logoutBtn">Выйти</button>';
-  $("logoutBtn").addEventListener("click", async () => {
-    try { await api("POST", "/api/auth?action=logout", {}); } catch (_) { }
-    location.href = "/";
-  });
-}
-
-function bindLogin() {
-  const form = $("loginForm"), btn = form.querySelector("button[type=submit]");
-  form.addEventListener("submit", async e => {
-    e.preventDefault();
-    const err = $("loginErr");
-    if (!form.login.value.trim() || !form.password.value) { err.textContent = "Введите логин и пароль."; err.hidden = false; return; }
-    err.hidden = true; btn.disabled = true; btn.textContent = "Вхожу…";
-    try {
-      await api("POST", "/api/auth?action=login", { login: form.login.value, password: form.password.value });
-      location.reload();
-    } catch (ex) {
-      err.textContent = ex.message; err.hidden = false;
-      btn.disabled = false; btn.textContent = "Войти";
-      form.password.select();
-    }
-  });
-}
+function showLogin() { location.href = "/?next=" + encodeURIComponent(location.pathname + location.hash); }
 
 function bindApp() {
   $("eps").addEventListener("click", e => {
@@ -451,6 +459,7 @@ function bindApp() {
     if (!e.target.matches(".g input")) return;
     const id = e.target.dataset.id;
     e.target.checked ? selected.add(id) : selected.delete(id);
+    saveMarksSoon(e.target.checked ? 1 : 0);
     e.target.closest(".g").classList.toggle("on", e.target.checked);
     renderPlan(); updateCounts();
   });
@@ -460,17 +469,18 @@ function bindApp() {
   paneC.addEventListener("change", e => {
     const s = e.target.closest("select[data-w]"); if (!s) return;
     const c = CARDS.get(s.dataset.w); c.choice = s.value === "custom" ? "custom" : +s.value;
+    saveMarksSoon();
     renderCards();
     if (c.choice === "custom") { const inp = paneC.querySelector('input[data-custom="' + CSS.escape(s.dataset.w) + '"]'); if (inp) inp.focus(); }
   });
-  paneC.addEventListener("input", e => { const i = e.target.closest("input[data-custom]"); if (i) CARDS.get(i.dataset.custom).custom = i.value; });
+  paneC.addEventListener("input", e => { const i = e.target.closest("input[data-custom]"); if (i) { CARDS.get(i.dataset.custom).custom = i.value; saveMarksSoon(); } });
   paneC.addEventListener("click", e => {
     const rm = e.target.closest("button[data-rm]"); if (rm) { const c = CARDS.get(rm.dataset.rm); if (c) toggleWord(c.vkey); }
   });
   $("copyPlan").addEventListener("click", () => copyText(planText(), "План скопирован"));
   $("dlPlan").addEventListener("click", () => download(planText(), "naruto_plan_" + stamp() + ".txt", "text/plain;charset=utf-8", "Файл плана сохранён"));
   $("printPlan").addEventListener("click", () => { setTab("G"); window.print(); });
-  $("clearPlan").addEventListener("click", () => { selected.clear(); document.querySelectorAll(".g input:checked").forEach(i => { i.checked = false; i.closest(".g").classList.remove("on"); }); renderPlan(); updateCounts(); toast("Отметки сняты"); });
+  $("clearPlan").addEventListener("click", () => { selected.clear(); document.querySelectorAll(".g input:checked").forEach(i => { i.checked = false; i.closest(".g").classList.remove("on"); }); renderPlan(); updateCounts(); saveMarksSoon(); toast("Отметки сняты"); });
   $("dlCards").addEventListener("click", () => download(tsv(), "naruto_cards_" + stamp() + ".tsv", "text/tab-separated-values;charset=utf-8", "Файл карточек сохранён"));
   $("copyCards").addEventListener("click", () => copyText(tsv(), "Карточки скопированы"));
   $("clearCards").addEventListener("click", () => { [...CARDS.values()].map(c => c.vkey).forEach(toggleWord); toast("Отметки сняты"); });
@@ -496,30 +506,29 @@ const engine = {
 
 /* ===================== start ===================== */
 async function boot() {
-  bindLogin();
   let data;
   try {
+    const me = (await api("GET", "/api/me")).data;
+    mountShell($("shell"), me, "vocabulary");
     data = (await api("GET", "/api/data")).data;
   } catch (e) {
-    if (e.status === 401) return showLogin();
-    if (e.data && e.data.setup) return showLogin(e.message);
-    $("bootView").innerHTML = "<div>Не удалось загрузить сайт. " + esc(e.message) + ' <button class="btn" type="button" id="bootRetry">Обновить</button></div>';
-    $("bootRetry").addEventListener("click", () => location.reload());
+    if (e.status === 401) return;
+    $("bootView").innerHTML = '<div class="ep-locked"><a class="home-link" href="/vocabulary">← Vocabulary</a><h1>' + (e.data && e.data.locked ? "Japanese is not in your plan yet" : "Не удалось загрузить сайт") + "</h1><p>" + esc(e.data && e.data.locked ? "Ask Natalia if you would like to study Japanese." : e.message) + "</p></div>";
     return;
   }
   applyCatalog(data);
   S.role = data.role;
+  await loadMarks();
   showView("app");
   bindApp();
-  renderAccount();
   const m = (location.hash || "").match(/^#ep(\d+)/);
   current = m && S.nums.includes(+m[1]) ? +m[1] : (S.nums.length ? S.nums[S.nums.length - 1] : null);
   renderPlan(); renderCards(); updateCounts(); setTab("G");
   if (current !== null) await showEpisode(current);
   else { renderEps(); $("guide").innerHTML = '<div class="ep-state">Эпизодов пока нет.</div>'; }
-  if (S.role === "dev") {
+  if (S.role === "teacher") {
     try { (await import("./editor.js")).initEditor(engine); }
-    catch (e) { console.error(e); toast("Не удалось включить режим разработчика: " + e.message); }
+    catch (e) { console.error(e); toast("Не удалось включить режим учителя: " + e.message); }
   }
   setTimeout(prefetchRest, 400);
 }
