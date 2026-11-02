@@ -14,6 +14,13 @@ export const CATEGORIES = [
   { id: "spoken", title: "Spoken English", blurb: "How people really talk: gonna, polite requests, short answers." },
 ];
 
+/* The big headings on the Grammar page. Each lists its topic areas (ids from CATEGORIES) in order.
+   An area left out of every part is shown at the end of the last part, so nothing disappears. */
+export const PARTS = [
+  { id: "verbs", title: "Verbs", cats: ["tenses", "conjugation", "modals", "conditionals", "phrasal-verbs"] },
+  { id: "words", title: "Words and sentences", cats: ["articles", "pronouns", "adjectives", "prepositions", "sentences", "spoken"] },
+];
+
 export const TOPICS = [
   ["tenses", "present_simple", "Present Simple", "A1–A2", "Habits, facts and timetables: she works, the train leaves at six."],
   ["tenses", "present_continuous", "Present Continuous", "A2", "What is happening now or around now, and fixed plans: we’re meeting at five."],
