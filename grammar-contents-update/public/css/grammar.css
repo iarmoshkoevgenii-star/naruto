@@ -1,0 +1,94 @@
+/* Grammar section: everything that decides how it looks is in this file.
+   Page structure (see public/js/grammar.js):
+     .gm-parts > .gm-part      the two big headings ("Verbs", "Words and sentences"), side by side
+       .gm-h                   a big heading
+       .gm-cols > .gm-group    a topic area: bold title (h3) and its lessons (ul of links)
+       .gm-sub                 a subsection inside an area: shared title (.gm-sub-h) and its lessons
+     .gm-area                  one area's page: its lessons (.gm-lessons)
+     .gm-lesson                a lesson page: .gm-side (topic list, can be hidden) + .gm-main
+   Colours come from tokens.css, except the link blue, which is set here. */
+
+:root{
+  --gm-link:#1F6BB8;        /* lessons and other links; the lightest blue that is still easy to read on this background */
+  --gm-link-hover:#154F8C;
+  --gm-text:17px;           /* size of area titles and lesson links */
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --gm-link:#86BBF2; --gm-link-hover:#B5D6FA; }
+}
+
+/* the page heading is there for screen readers; the big part headings are what people see */
+.gm-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ---------- links ---------- */
+.gm a{color:var(--gm-link);text-decoration:none;text-underline-offset:3px}
+.gm a:hover{color:var(--gm-link-hover);text-decoration:underline}
+.gm a:focus-visible{outline:2px solid var(--gm-link);outline-offset:3px;border-radius:3px}
+
+/* ---------- big headings ---------- */
+.gm-h{font-size:clamp(32px,3.6vw,50px);font-weight:700;letter-spacing:-.025em;line-height:1.05;color:var(--ink);margin:0 0 38px}
+
+/* ---------- the index: two parts side by side, each in two columns ---------- */
+.gm-parts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,540px),1fr));gap:24px 56px;padding-top:16px}
+.gm-cols{columns:2 230px;column-gap:48px}
+.gm-group{break-inside:avoid;margin:0 0 48px}
+.gm-group h3{font-size:var(--gm-text);font-weight:700;line-height:1.3;margin:0 0 16px}
+.gm-group h3 a{color:var(--ink)}
+.gm-group h3 a:hover{color:var(--ink)}
+.gm-group ul{list-style:none;margin:0;padding:0;display:grid;gap:13px}
+.gm-group li a{font-size:var(--gm-text);line-height:1.35}
+
+/* ---------- subsections: lessons that belong together, under a shared title ---------- */
+.gm-sub-h{display:block;font-size:var(--gm-text);font-style:italic;line-height:1.35;color:var(--ink-2)}  /* italic, like the book; bold is for areas */
+.gm-sub-h a{font-style:italic}                /* the subsection is also a lesson of its own */
+.gm-sub > ul{list-style:none;margin:10px 0 0;padding:0 0 0 14px;border-left:1px solid var(--line);display:grid;gap:10px}
+
+/* ---------- one area ---------- */
+.gm-back{display:inline-block;font-size:14px;margin:0 0 22px}
+.gm-area .gm-h{margin-bottom:14px}
+.gm-blurb{font-size:19px;line-height:1.45;color:var(--ink-2);max-width:62ch;margin:0 0 6px}
+.gm-meta{font-size:14px;color:var(--muted);margin:0}
+.gm-lessons{margin:40px 0 0}
+.gm-lessons > ul{list-style:none;margin:0;padding:0;columns:2 340px;column-gap:64px}
+.gm-lessons > ul > li{break-inside:avoid;margin:0 0 18px}
+.gm-lessons a{font-size:var(--gm-text)}
+.gm-lessons p{margin:5px 0 0;font-size:15px;line-height:1.45;color:var(--muted);max-width:52ch}
+.gm-lv{display:inline-block;margin-right:8px;font-size:13px;font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums}
+
+/* ---------- a lesson ---------- */
+.gm-lesson{display:grid;grid-template-columns:270px minmax(0,1fr);gap:64px;align-items:start}
+.gm-lesson.side-closed{grid-template-columns:minmax(0,1fr)}
+.gm-lesson.side-closed .gm-side{display:none}
+.gm-show{display:none}
+.gm-lesson.side-closed .gm-show{display:inline-block;margin:0 0 18px}
+.gm-side{position:sticky;top:20px;max-height:calc(100vh - 40px);overflow:auto;padding:4px 6px 20px 0}
+.gm-side-h{display:flex;justify-content:space-between;align-items:baseline;margin:0 0 20px;font-size:14px;color:var(--muted)}
+.gm-side .gm-group{margin-bottom:30px}
+.gm-side .gm-group ul{gap:10px}
+.gm-side .gm-group li a{font-size:15.5px}
+.gm-side a[aria-current="page"]{color:var(--ink);font-weight:700}
+.gm-side-k{margin:0 0 12px;font-size:14px;color:var(--muted)}
+.gm-side-other{list-style:none;margin:0;padding:0;display:grid;gap:9px}
+.gm-side-other a{font-size:15px}
+.gm-main{min-width:0}
+.gm-crumbs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 20px;font-size:14px;color:var(--muted)}
+.gm-crumbs a{color:var(--muted)}
+.gm-main .gm-h{margin-bottom:12px}
+.gm-main .gm-meta{margin-bottom:10px}
+.gm-draft{margin:40px 0 0;padding:2px 0 2px 20px;border-left:3px solid var(--line);max-width:64ch}
+.gm-draft h2{font-size:var(--gm-text);margin:0 0 6px}
+.gm-draft p{margin:0 0 10px;color:var(--ink-2);line-height:1.5}
+.gm-draft ul{margin:0;padding-left:18px;color:var(--muted);line-height:1.7}
+.gm-pn{display:flex;justify-content:space-between;gap:24px;margin-top:60px;padding-top:20px;border-top:1px solid var(--line);max-width:64ch}
+.gm-pn a{display:grid;gap:4px;font-size:var(--gm-text)}
+.gm-pn small{font-size:13px;color:var(--muted)}
+.gm-pn .nx{text-align:right;margin-left:auto}
+
+/* ---------- phones ---------- */
+@media (max-width:760px){
+  .gm-h{margin-bottom:26px}
+  .gm-group{margin-bottom:34px}
+  .gm-lesson{grid-template-columns:1fr;gap:36px}
+  .gm-side{position:static;max-height:none;order:2;padding:24px 0 0;border-top:1px solid var(--line)}  /* the lesson first, the topic list after it */
+  .gm-lessons{margin-top:28px}
+}
