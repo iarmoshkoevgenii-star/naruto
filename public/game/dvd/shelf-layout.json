@@ -1,0 +1,51 @@
+{
+  "dvd": {
+    "w": 3,
+    "h": 8,
+    "gap": 1
+  },
+  "shelves": {
+    "bookshelf-wood": [
+      {
+        "x": 3,
+        "y": 4,
+        "w": 22,
+        "h": 8
+      },
+      {
+        "x": 3,
+        "y": 15,
+        "w": 22,
+        "h": 8
+      },
+      {
+        "x": 3,
+        "y": 26,
+        "w": 22,
+        "h": 8
+      }
+    ],
+    "bookshelf-white": [
+      {
+        "x": 3,
+        "y": 4,
+        "w": 22,
+        "h": 8
+      },
+      {
+        "x": 3,
+        "y": 15,
+        "w": 22,
+        "h": 8
+      },
+      {
+        "x": 3,
+        "y": 26,
+        "w": 22,
+        "h": 8
+      }
+    ]
+  },
+  "capacity": 15,
+  "note": "Coordinates are in sprite pixels relative to the bookshelf sprite's top-left. Fill rows top to bottom, left to right."
+}
