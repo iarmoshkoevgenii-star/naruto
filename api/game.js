@@ -11,7 +11,8 @@
    POST /api/game?action=upload           {name, dataUrl, w, h}                              (teacher) */
 import { HttpError, json, run, guardWrite, readBody, param } from "../lib/http.js";
 import { requireSession } from "../lib/session.js";
-import { loadConfig, saveOverrides, gameOf, summary, award, buy, equip, grant, resetGame, storeAsset, readAsset } from "../lib/game.js";
+import { loadConfig, saveOverrides, gameOf, summary, award, buy, equip, grant, resetGame, storeAsset } from "../lib/game.js";
+import { getAsset } from "../lib/assets.js";
 import { getAccount } from "../lib/accounts.js";
 import { SLOTS, ROOM } from "../public/js/game-model.js";
 
@@ -22,10 +23,9 @@ export async function GET(request) {
     const s = await requireSession(request);
     const asset = param(request, "asset");
     if (asset) {
-      const dataUrl = await readAsset(asset);
-      if (!dataUrl) throw new HttpError(404, "Picture not found.");
-      const [, type, b64] = /^data:(image\/[a-z]+);base64,(.*)$/.exec(dataUrl);
-      return new Response(Buffer.from(b64, "base64"), { status: 200, headers: { "Content-Type": type, "Cache-Control": "private, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff" } });
+      const pic = await getAsset(asset);
+      if (!pic) throw new HttpError(404, "Picture not found.");
+      return new Response(pic.bytes, { status: 200, headers: { "Content-Type": pic.mime, "Cache-Control": "private, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff" } });
     }
     const { config, overrides, etag } = await loadConfig({ fresh: s.role === "teacher" });
     const student = param(request, "student");
@@ -66,7 +66,7 @@ export async function POST(request) {
       }
       case "upload": {
         if (s.role !== "teacher") throw new HttpError(403, "Only the teacher can do this.");
-        return json({ asset: await storeAsset(body.name, body.dataUrl, body.w, body.h) });
+        return json({ asset: await storeAsset(body.name, body.dataUrl, body.w, body.h, body.kind) });
       }
       default: throw new HttpError(404, "Unknown action.");
     }

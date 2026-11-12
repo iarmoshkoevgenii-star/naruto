@@ -169,7 +169,7 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
 - Tests: migrations apply on a fresh DB and are idempotent; `query` round-trips.
 - Done when: `npm test` passes; `npm run dev` starts and creates the schema in `.pglite/`.
 
-### Step 2: Asset store · `TODO`
+### Step 2: Asset store · `DONE`
 - `lib/assets.js`: `putAsset({bytes, mime, name, kind, w, h})` → content-hash id (sha256, 32 hex, same
   scheme as today) → bytes to `school/game/files/<id>.<ext>` through `lib/store.js` (add a binary
   read/write to the store backends if needed) → row in `assets`. `getAsset(id)` → `{bytes, mime}`.
@@ -194,7 +194,10 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
   3. Insert every `BUILTIN_ITEMS` entry with the **same id**.
   4. Apply `school/game/config.json` overrides: changed fields, custom items (`u-...` ids), `removed` →
      `status = 'deleted'`, `active: false` → `status = 'hidden'`; migrate each legacy base64 asset doc
-     into `assets` + a file.
+     into `assets` + a file: `decodeDataUrl(doc.dataUrl)` then `putAsset({bytes, mime, name, kind:
+     'sprite', w, h})` with name/w/h from the `config.json` `assets` entry. The id comes out the same as the
+     old one (same hash scheme); if it doesn't (only possible if the stored data URL's declared type was
+     wrong), log it and rewrite item sprites that point at the old id.
   5. Upload the step 0 DVD art as assets (`shelf-empty` ×2, `dvd-blank` ×1) and set the bookshelf items'
      `shelf_layout` from `public/game/dvd/shelf-layout.json`. (Swapping the bookshelf sprite to the empty
      one happens in step 7, not here.)
@@ -206,6 +209,9 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
   throws a 503 ("shop database is not connected"). Check the log for whether Neon is connected; if not,
   remind the user that this commit must not be deployed until Neon is connected and seeded (step 9 order).
 - `lib/game.js`: `loadConfig()` reads rules from `config.json` and items from `lib/catalog.js`.
+  `storeAsset()` (step 2) still appends each upload to `config.json` `assets` so the old editor can list
+  it; serve the uploads list from the `assets` table instead (e.g. `publicConfig.assets` for teachers) and
+  stop writing that list.
   `saveOverrides` only saves rules now. `buy`, `equip`, `contentAccess` use catalog lookups.
 - **Ownership fix:** a student's owned/equipped items must resolve even if hidden or deleted. Give
   `owned`/`furnished` the full item list (including hidden/deleted), and have the shop filter to active
@@ -265,7 +271,9 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
 
 ### Step 9: Cleanup, docs, release prep · `TODO` · Needs user (deploy)
 - Remove dead code (old overrides-items paths, legacy asset fallback **only if** step 3's migration ran
-  in production; otherwise keep it and say so in the log).
+  in production; otherwise keep it and say so in the log). The legacy pieces are: the `getAsset` fallback
+  to `school/game/assets/<id>.json` in `lib/assets.js`, the `dbConfigured()` branches in `lib/assets.js`
+  and `storeAsset` (`lib/game.js`), and `dbConfigured()` itself in `lib/db.js` if nothing else uses it.
 - Update `README.md` (room game, Room & shop editor, new env var `DATABASE_URL`, `npm run migrate`,
   `npm run seed-catalog`).
 - Run the full test suite and a full browser pass of the flows from steps 4, 6 and 8.
@@ -331,3 +339,37 @@ Newest entry last. Copy this template:
   read/write for image files (Blob `put` with a Buffer; local backend `writeFile`). Ask the user again
   whether Neon is connected yet.
 - Commit: see `git log` ("room-shop step 1")
+
+### Step 2 · 2026-11-12 · DONE
+- Did: `lib/store.js`: binary `readBytes`/`writeBytes` on both backends (Blob `put` with a Buffer and
+  `allowOverwrite: true`, since files are content-addressed; local: atomic temp-file + rename), exported as
+  `readFileBytes(key)` / `writeFileBytes(key, bytes, mime)`. New `lib/assets.js`: `sniffMime(bytes)` (magic
+  bytes for png/jpeg/gif/webp), `assetIdOf(bytes, mime)`, `decodeDataUrl(dataUrl)`,
+  `putAsset({bytes, mime?, name, kind='sprite', w, h})` → `{id, kind, mime, name, w, h, at}`,
+  `getAsset(id)` → `{bytes, mime}` | null, `MAX_ASSET_BYTES` (1.5 MB), `ASSET_KINDS`. Files go to
+  `school/game/files/<id>.<png|webp|gif|jpg>`, file first, then the row (`ON CONFLICT DO NOTHING`).
+  `lib/game.js` `storeAsset(name, dataUrl, w, h, kind?)` now uses `putAsset`; the old `readAsset` is gone.
+  `api/game.js`: `?asset=` serves `getAsset` (same immutable cache header); `action=upload` passes an
+  optional `body.kind`.
+- Decisions/changes vs plan: (1) **Id = first 32 hex of sha256 of `data:<sniffed mime>;base64,<bytes>`**,
+  i.e. exactly the old scheme, so legacy uploads keep their ids when step 3 migrates them. (2) A declared
+  mime that disagrees with the magic bytes is rejected (422). (3) Re-uploading the same bytes returns the
+  existing row unchanged (first name wins). (4) **Production safety:** Neon isn't connected, so on Vercel
+  without `DATABASE_URL` (`dbConfigured()` in `lib/db.js` is false) `storeAsset` still writes the old base64
+  doc and `getAsset` only reads old docs. Uploads and pictures therefore keep working if this commit gets
+  deployed early. (5) `storeAsset` still appends to `config.json` `assets` because the editor lists uploads
+  from there (client unchanged, as planned). Edited steps 3, 4 and 9 accordingly.
+- How to verify: `npm test`: 16 passing (`test/assets.test.js`: sniffing, id scheme, round-trip, dedupe,
+  rejections incl. size/kind/mismatch, legacy fallback, the `storeAsset` path). A scratch script drove the
+  real `api/game.js` `POST ?action=upload` / `GET ?asset=` with a throwaway secret, uploading
+  `placeholders.png`: student upload 403; teacher 200; GET 200 `image/png`, identical bytes, immutable
+  cache header; unknown id 404. It got the same id in both modes (PGlite, and `VERCEL=1` without a DB,
+  which writes the legacy doc). `npm run dev` starts ("Catalog database (pglite): up to date").
+- Env/infra state: Neon still **not connected** (as far as this session knows; the user wasn't asked
+  again before the commit). No `.env.local`, so no browser check (no UI changed in this step).
+- Not done / known issues: `assets` rows have no `size` column (not needed so far). Blob `readBytes`
+  wasn't exercised against real Blob (no token locally); it mirrors the existing `read`.
+- Next agent: step 3. Use `putAsset` for the sheet (`kind: 'sheet'`) and the DVD art; see the step 3 note
+  on migrating legacy docs. Tests need `process.env.LOCAL_STORE_DIR` set to a temp dir (see
+  `test/assets.test.js`), or `writeFileBytes` throws "Storage is not connected".
+- Commit: see `git log` ("room-shop step 2")
