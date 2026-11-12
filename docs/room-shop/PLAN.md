@@ -208,6 +208,8 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
 - ⚠ From this step on, the production site needs Neon: on Vercel without `DATABASE_URL`, `lib/db.js`
   throws a 503 ("shop database is not connected"). Check the log for whether Neon is connected; if not,
   remind the user that this commit must not be deployed until Neon is connected and seeded (step 9 order).
+  Neon was connected on 2026-11-12, but the database still has to be **seeded** (`npm run seed-catalog`
+  against it, step 3) before this step is deployed; otherwise the shop is empty.
 - `lib/game.js`: `loadConfig()` reads rules from `config.json` and items from `lib/catalog.js`.
   `storeAsset()` (step 2) still appends each upload to `config.json` `assets` so the old editor can list
   it; serve the uploads list from the `assets` table instead (e.g. `publicConfig.assets` for teachers) and
@@ -365,8 +367,14 @@ Newest entry last. Copy this template:
   `placeholders.png`: student upload 403; teacher 200; GET 200 `image/png`, identical bytes, immutable
   cache header; unknown id 404. It got the same id in both modes (PGlite, and `VERCEL=1` without a DB,
   which writes the legacy doc). `npm run dev` starts ("Catalog database (pglite): up to date").
-- Env/infra state: Neon still **not connected** (as far as this session knows; the user wasn't asked
-  again before the commit). No `.env.local`, so no browser check (no UI changed in this step).
+- Env/infra state: after the commit the user confirmed **Neon is connected in the Vercel dashboard**
+  (2026-11-12), so `DATABASE_URL` should exist on Vercel. Not verified by an agent: no Vercel CLI, and
+  build logs weren't visible. The PR #1 preview (branch `room-shop`) built successfully; its build runs
+  migrations when `DATABASE_URL` is set. Locally there's still no `.env.local` and no `DATABASE_URL`, so
+  dev and tests use PGlite. No browser check (no UI changed in this step).
+- Branches: the user asked for a PR, so steps 0–2 were pushed to a new branch `room-shop`, and PR #1
+  goes from it into `main`. Local `main` still holds the same commits. Keep committing on the
+  checked-out branch (rule 5), and push to `room-shop` only when the user asks.
 - Not done / known issues: `assets` rows have no `size` column (not needed so far). Blob `readBytes`
   wasn't exercised against real Blob (no token locally); it mirrors the existing `read`.
 - Next agent: step 3. Use `putAsset` for the sheet (`kind: 'sheet'`) and the DVD art; see the step 3 note
