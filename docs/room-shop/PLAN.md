@@ -99,7 +99,13 @@ npm test               # added in step 1: node --test
   commit their values. If you need to sign in during a browser check and don't have credentials, ask the
   user to sign in in the browser pane.
 - After step 1, local dev and tests use **PGlite** (in-process Postgres, no server) when `DATABASE_URL` is
-  not set, and Neon when it is.
+  not set, and Neon when it is. Dev data lives in `.pglite/` (delete the folder to start over);
+  `npm run dev` and `npm run migrate` apply migrations. New migrations: add `db/migrations/NNN_name.sql`
+  (never edit an applied one).
+- Tests: `npm test` runs `NODE_ENV=test node --test test/`. Every DB test file must call
+  `beforeEach(() => useMemoryDb())` and `after(() => closeDb())` from `lib/db.js`, then `migrate()`.
+- Without `.env.local` the API answers "The site is not set up yet" (500) for everything behind a
+  session. That's expected, not a regression. For browser checks the user has to provide `.env.local`.
 - Placeholder DVD art: `python3 scripts/dvd-placeholders.py` (needs Pillow; install into a temp dir with
   `pip install --target <dir> pillow` and run with `PYTHONPATH=<dir>`).
 
@@ -144,7 +150,7 @@ Done in the planning session (see log). Produced this file, `scripts/dvd-placeho
 light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 15), and `preview.png`
 (8× preview of 0/4/9/20 DVDs, for humans only; don't ship it as an asset).
 
-### Step 1: Tooling, database layer, schema · `TODO` · Needs user (Neon provisioning)
+### Step 1: Tooling, database layer, schema · `DONE` (Neon still to be connected by the user)
 - Add `.gitignore` (`node_modules/`, `.local-store/`, `.env*.local`, `.pglite/`, `.vercel/`).
 - Add `"test": "node --test"` to `package.json`; tests live in `test/*.test.js`.
 - Dependencies: `@neondatabase/serverless`, `@electric-sql/pglite` (pin exact versions).
@@ -196,6 +202,9 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
   (fixture `config.json`).
 
 ### Step 4: Switch the game to the catalog (no visible change) · `TODO`
+- ⚠ From this step on, the production site needs Neon: on Vercel without `DATABASE_URL`, `lib/db.js`
+  throws a 503 ("shop database is not connected"). Check the log for whether Neon is connected; if not,
+  remind the user that this commit must not be deployed until Neon is connected and seeded (step 9 order).
 - `lib/game.js`: `loadConfig()` reads rules from `config.json` and items from `lib/catalog.js`.
   `saveOverrides` only saves rules now. `buy`, `equip`, `contentAccess` use catalog lookups.
 - **Ownership fix:** a student's owned/equipped items must resolve even if hidden or deleted. Give
@@ -292,5 +301,33 @@ Newest entry last. Copy this template:
   old filled bookshelves (fine: step 7 switches the items to the empty assets).
 - Next agent: start step 1. Ask the user about Neon early (it's the only blocker), but build on PGlite
   meanwhile.
-- Commit: "room-shop step 0" if the user approved committing; otherwise these files are uncommitted. Check
-  `git status`, and ask the user whether to commit them before you start step 1.
+- Commit: fab5db9
+
+### Step 1 · 2026-11-12 · DONE
+- Did: `.gitignore` (node_modules, .local-store, .pglite, .env*, .vercel). `package.json`: scripts `test`
+  (`NODE_ENV=test node --test test/`) and `migrate`; dependency `@neondatabase/serverless@1.2.0`,
+  devDependency `@electric-sql/pglite@0.5.13` (dev/test only, loaded with a dynamic import, so it never
+  runs in production). `lib/db.js`: `query(text, params) → rows`, `tx(async t => { t.query; t.exec })`,
+  `dbKind()`, `useMemoryDb()`, `closeDb()`. Neon uses HTTP for queries and a per-transaction WebSocket
+  Pool. `db/migrations/001_catalog.sql`: `assets`, `shop_sections`, `items` exactly as section 4, with
+  CHECKs on ids, price, level, status, kind, mime and colour, and **deferrable** unique `(section_id,
+  position)` and `shop_sections(position)`, so reorders can swap positions inside one `tx`.
+  `lib/migrate.js` (advisory lock, one transaction per file, `schema_migrations`), `scripts/migrate.mjs`
+  (reads .env.local). `npm run dev` migrates on startup; `scripts/build-seed.mjs` (the Vercel build)
+  migrates only when `DATABASE_URL` is set.
+- Decisions/changes vs plan: item `type` has **no** DB CHECK (the app validates it, so adding `movie` in
+  step 7 needs no migration). Asset `kind` and `mime` **are** CHECKed. Added notes to section 3 and a
+  warning to step 4.
+- How to verify: `npm test` (7 passing: fresh migrate, idempotent, round-trip of int[]/jsonb,
+  constraints, deferred position swap, rollback). `rm -rf .pglite && npm run migrate` twice gives
+  "applied 001_catalog.sql", then "up to date". `npm run dev` logs "Catalog database (pglite): …" and
+  serves `/` with 200.
+- Env/infra state: **Neon not connected yet.** The user chose to add it later in the Vercel dashboard
+  (Storage → Marketplace → Neon → connect to the project, which sets `DATABASE_URL`). No `.env.local` in
+  the repo folder, so session APIs answer "not set up" locally.
+- Not done / known issues: `npm audit` reports advisories in existing dependencies (not investigated, out
+  of scope). PGlite's first start takes ~0.5 s per in-memory DB, so tests take ~4 s.
+- Next agent: step 2. `lib/store.js` only reads and writes text/JSON today, so you'll need a binary
+  read/write for image files (Blob `put` with a Buffer; local backend `writeFile`). Ask the user again
+  whether Neon is connected yet.
+- Commit: see `git log` ("room-shop step 1")

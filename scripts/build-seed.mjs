@@ -57,4 +57,13 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const r = buildSeed();
   console.log("Naruto episodes:", r.naruto.join(", ") || "none");
   console.log("English episodes:", r.english.join(", ") || "none");
+  // Vercel build: bring the catalog database up to date (docs/room-shop/PLAN.md). Without DATABASE_URL
+  // there is nothing to migrate; the shop reports "database not connected" at run time instead.
+  if (process.env.DATABASE_URL) {
+    const { migrate } = await import("../lib/migrate.js");
+    const { closeDb } = await import("../lib/db.js");
+    const applied = await migrate();
+    console.log("Catalog database:", applied.length ? "applied " + applied.join(", ") : "up to date");
+    await closeDb();
+  } else console.log("Catalog database: DATABASE_URL not set, migrations skipped");
 }

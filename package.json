@@ -8,9 +8,15 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "node scripts/dev-server.mjs"
+    "dev": "node scripts/dev-server.mjs",
+    "test": "NODE_ENV=test node --test test/",
+    "migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
+    "@neondatabase/serverless": "1.2.0",
     "@vercel/blob": "2.8.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.13"
   }
 }
