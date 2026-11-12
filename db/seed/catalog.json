@@ -1,0 +1,506 @@
+{
+ "note": "The built-in shop catalog as it was in public/js/game-model.js before the room-shop rework. Read only by scripts/seed-catalog.mjs (lib/seed-catalog.js); never edit ids.",
+ "sections": [
+  {
+   "id": "shows",
+   "label": "Shows & books",
+   "types": [
+    "show",
+    "book"
+   ]
+  },
+  {
+   "id": "furniture",
+   "label": "Furniture",
+   "types": [
+    "desk",
+    "chair",
+    "bed",
+    "bookshelf",
+    "armchair",
+    "lamp",
+    "computer",
+    "diary",
+    "calendar"
+   ]
+  },
+  {
+   "id": "walls",
+   "label": "Walls & floors",
+   "types": [
+    "wallpaper",
+    "floor",
+    "window",
+    "door",
+    "rug"
+   ]
+  },
+  {
+   "id": "decor",
+   "label": "Decor",
+   "types": [
+    "plant",
+    "art",
+    "clock"
+   ]
+  }
+ ],
+ "items": [
+  {
+   "id": "en/desperate-housewives",
+   "name": "Desperate Housewives",
+   "sub": "Season 1, episode 1",
+   "type": "show",
+   "cover": "#1E5C62",
+   "price": 1,
+   "minLevel": 1
+  },
+  {
+   "id": "desk-wood",
+   "name": "Oak desk",
+   "type": "desk",
+   "price": 1,
+   "minLevel": 1,
+   "default": true,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [0, 0, 40, 20]
+   }
+  },
+  {
+   "id": "desk-white",
+   "name": "White desk",
+   "type": "desk",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [42, 0, 40, 20]
+   }
+  },
+  {
+   "id": "desk-walnut",
+   "name": "Walnut desk",
+   "type": "desk",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [84, 0, 40, 20]
+   }
+  },
+  {
+   "id": "chair-teal",
+   "name": "Teal chair",
+   "type": "chair",
+   "price": 1,
+   "minLevel": 1,
+   "default": true,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [126, 0, 16, 22]
+   }
+  },
+  {
+   "id": "chair-orange",
+   "name": "Orange chair",
+   "type": "chair",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [144, 0, 16, 22]
+   }
+  },
+  {
+   "id": "chair-green",
+   "name": "Green chair",
+   "type": "chair",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [162, 0, 16, 22]
+   }
+  },
+  {
+   "id": "bed-blue",
+   "name": "Blue bed",
+   "type": "bed",
+   "price": 1,
+   "minLevel": 1,
+   "default": true,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [180, 0, 32, 44]
+   }
+  },
+  {
+   "id": "bed-orange",
+   "name": "Orange bed",
+   "type": "bed",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [214, 0, 32, 44]
+   }
+  },
+  {
+   "id": "bed-green",
+   "name": "Green bed",
+   "type": "bed",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [0, 46, 32, 44]
+   }
+  },
+  {
+   "id": "bookshelf-wood",
+   "name": "Wooden bookshelf",
+   "type": "bookshelf",
+   "price": 1,
+   "minLevel": 1,
+   "default": true,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [34, 46, 28, 40]
+   }
+  },
+  {
+   "id": "bookshelf-white",
+   "name": "White bookshelf",
+   "type": "bookshelf",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [64, 46, 28, 40]
+   }
+  },
+  {
+   "id": "computer",
+   "name": "Computer",
+   "type": "computer",
+   "price": 1,
+   "minLevel": 1,
+   "default": true,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [94, 46, 18, 16]
+   }
+  },
+  {
+   "id": "diary",
+   "name": "Diary",
+   "type": "diary",
+   "price": 1,
+   "minLevel": 1,
+   "default": true,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [114, 46, 10, 8]
+   }
+  },
+  {
+   "id": "calendar",
+   "name": "Calendar",
+   "type": "calendar",
+   "price": 1,
+   "minLevel": 1,
+   "default": true,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [126, 46, 16, 18]
+   }
+  },
+  {
+   "id": "window-plain",
+   "name": "Window",
+   "type": "window",
+   "price": 1,
+   "minLevel": 1,
+   "default": true,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [144, 46, 32, 24]
+   }
+  },
+  {
+   "id": "window-curtain-teal",
+   "name": "Window, teal curtains",
+   "type": "window",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [178, 46, 32, 24]
+   }
+  },
+  {
+   "id": "window-curtain-red",
+   "name": "Window, red curtains",
+   "type": "window",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [212, 46, 32, 24]
+   }
+  },
+  {
+   "id": "door-wood",
+   "name": "Wooden door",
+   "type": "door",
+   "price": 1,
+   "minLevel": 1,
+   "default": true,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [0, 92, 24, 40]
+   }
+  },
+  {
+   "id": "door-teal",
+   "name": "Teal door",
+   "type": "door",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [26, 92, 24, 40]
+   }
+  },
+  {
+   "id": "rug-beige",
+   "name": "Beige rug",
+   "type": "rug",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [52, 92, 48, 26]
+   }
+  },
+  {
+   "id": "rug-teal",
+   "name": "Teal rug",
+   "type": "rug",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [102, 92, 48, 26]
+   }
+  },
+  {
+   "id": "rug-orange",
+   "name": "Orange rug",
+   "type": "rug",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [152, 92, 48, 26]
+   }
+  },
+  {
+   "id": "rug-green-round",
+   "name": "Round green rug",
+   "type": "rug",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [202, 92, 48, 26]
+   }
+  },
+  {
+   "id": "plant-bush",
+   "name": "Bushy plant",
+   "type": "plant",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [0, 134, 14, 24]
+   }
+  },
+  {
+   "id": "plant-tall",
+   "name": "Tall plant",
+   "type": "plant",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [16, 134, 14, 24]
+   }
+  },
+  {
+   "id": "lamp-cream",
+   "name": "Cream lamp",
+   "type": "lamp",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [32, 134, 12, 30]
+   }
+  },
+  {
+   "id": "lamp-teal",
+   "name": "Teal lamp",
+   "type": "lamp",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [46, 134, 12, 30]
+   }
+  },
+  {
+   "id": "art-sunset",
+   "name": "Sunset picture",
+   "type": "art",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [60, 134, 24, 16]
+   }
+  },
+  {
+   "id": "art-mountains",
+   "name": "Mountain picture",
+   "type": "art",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [86, 134, 24, 16]
+   }
+  },
+  {
+   "id": "armchair-mustard",
+   "name": "Mustard armchair",
+   "type": "armchair",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [112, 134, 24, 22]
+   }
+  },
+  {
+   "id": "armchair-gray",
+   "name": "Gray armchair",
+   "type": "armchair",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [138, 134, 24, 22]
+   }
+  },
+  {
+   "id": "clock",
+   "name": "Wall clock",
+   "type": "clock",
+   "price": 1,
+   "minLevel": 1,
+   "sprite": {
+    "sheet": "placeholders",
+    "rect": [164, 134, 12, 12]
+   }
+  },
+  {
+   "id": "wall-cream",
+   "name": "Cream wall",
+   "type": "wallpaper",
+   "surface": {
+    "color": "#EFE6D2",
+    "pattern": "plain",
+    "accent": "#E2D6BC"
+   },
+   "price": 1,
+   "minLevel": 1,
+   "default": true
+  },
+  {
+   "id": "wall-teal-stripes",
+   "name": "Teal stripes",
+   "type": "wallpaper",
+   "surface": {
+    "color": "#CFE3DF",
+    "pattern": "stripes",
+    "accent": "#B4D2CC"
+   },
+   "price": 1,
+   "minLevel": 1
+  },
+  {
+   "id": "wall-peach-dots",
+   "name": "Peach dots",
+   "type": "wallpaper",
+   "surface": {
+    "color": "#F6DCC8",
+    "pattern": "dots",
+    "accent": "#E9BC9C"
+   },
+   "price": 1,
+   "minLevel": 1
+  },
+  {
+   "id": "wall-sage-diamonds",
+   "name": "Sage diamonds",
+   "type": "wallpaper",
+   "surface": {
+    "color": "#DCE6D2",
+    "pattern": "diamonds",
+    "accent": "#C3D3B4"
+   },
+   "price": 1,
+   "minLevel": 1
+  },
+  {
+   "id": "floor-oak",
+   "name": "Oak planks",
+   "type": "floor",
+   "surface": {
+    "color": "#C99A66",
+    "pattern": "planks",
+    "accent": "#B4834F"
+   },
+   "price": 1,
+   "minLevel": 1,
+   "default": true
+  },
+  {
+   "id": "floor-checker",
+   "name": "Checker tiles",
+   "type": "floor",
+   "surface": {
+    "color": "#E9E4DA",
+    "pattern": "checker",
+    "accent": "#BFC6C6"
+   },
+   "price": 1,
+   "minLevel": 1
+  },
+  {
+   "id": "floor-carpet",
+   "name": "Gray carpet",
+   "type": "floor",
+   "surface": {
+    "color": "#9AA3A8",
+    "pattern": "plain",
+    "accent": "#8C959A"
+   },
+   "price": 1,
+   "minLevel": 1
+  }
+ ]
+}

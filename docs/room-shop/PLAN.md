@@ -181,7 +181,7 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
   `putAsset`.
 - Tests: put/get round-trip, dedupe by hash, rejects wrong type or size, legacy fallback.
 
-### Step 3: Catalog module and one-time seed · `TODO`
+### Step 3: Catalog module and one-time seed · `DONE`
 - `lib/catalog.js` as in section 4. `listItems` returns the same item shape the client uses today
   (`{id, name, sub, type, price, minLevel, default, active, sprite: {asset, rect} | surface, cover}`),
   plus `status`, `sectionId`, `position`, `spine`. Keep `active` derived (`status === 'active'`) so
@@ -203,6 +203,9 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
      one happens in step 7, not here.)
 - Tests: seeding a fresh DB yields every built-in id; running it twice changes nothing; overrides applied
   (fixture `config.json`).
+- As built (see the step 3 log): the built-in list is snapshotted in `db/seed/catalog.json`, so removing
+  `BUILTIN_ITEMS` in step 4 doesn't break the seed. The seed only **adds** missing rows; it never edits
+  existing ones.
 
 ### Step 4: Switch the game to the catalog (no visible change) · `TODO`
 - ⚠ From this step on, the production site needs Neon: on Vercel without `DATABASE_URL`, `lib/db.js`
@@ -219,9 +222,15 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
   `owned`/`furnished` the full item list (including hidden/deleted), and have the shop filter to active
   ones. `canBuy` must refuse non-active items.
 - `public/js/game-model.js`: remove `BUILTIN_ITEMS`, `effectiveConfig`, and the item part of
-  `configErrors`; keep the pure functions. `room.js` `spriteUrl` handles `{asset, rect}` only (the sheet
+  `configErrors`; keep the pure functions, `ITEM_TYPES` and `PATTERNS` (`lib/catalog.js` imports them).
+  The `ATLAS` import goes too (the seed reads rects from `db/seed/catalog.json`). `room.js` `spriteUrl` handles `{asset, rect}` only (the sheet
   is an asset now).
-- `public/js/shop.js`: render sections from `config.sections` (ordered) and items by `position`.
+- `public/js/shop.js`: render sections from `config.sections` (ordered) and items by `position`. Use
+  `listSections()` / `listItems()` from `lib/catalog.js`; they already return section order and the client
+  item shape (`builtin` is derived from the id for the old editor). The seeded section label is today's
+  "Shows & books" (step 7 may rename it to "Shows & movies").
+- Teachers' upload list: the `assets` table (`SELECT ... WHERE kind = 'sprite'`); there is no list helper
+  in `lib/catalog.js` yet, add one.
 - `api/game.js` `publicConfig` adds `sections`; students get active items plus the ones they own.
 - Tests: owner keeps a hidden or deleted item in `furnished`; non-owner can't buy it; shop list excludes
   it; DH ownership still unlocks the episode.
@@ -229,13 +238,17 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
   screenshots).
 
 ### Step 5: Admin API · `TODO`
+- `lib/catalog.js` (step 3) already validates and implements all of these (`createItem`, `updateItem`,
+  `moveItem`, `setStatus`, `reorder`, `createSection`, `renameSection`, `reorderSections`,
+  `deleteSection`), throwing 404/409/422 `HttpError`s; this step is mostly wiring, permissions and tests.
 - Teacher-only actions (in `api/game.js` or a new `api/catalog.js`; mind Vercel's function count). All
   validated server-side:
   - `item.create` `{name, type, sectionId, price, minLevel, sprite:{asset,rect} | surface, cover?, spine?}`
   - `item.update` `{id, ...fields}` (name, sub, price, minLevel, sectionId, cover, spine, isDefault)
   - `item.hide`, `item.unhide`, `item.delete`, `item.restore`
   - `item.reorder` `{sectionId, ids: [...]}` (the full new order of that section)
-  - `section.create|rename|reorder|delete` (delete fails with a clear 422 if not empty)
+  - `section.create|rename|reorder|delete` (delete fails with a clear 422 if not empty; items with status
+    `deleted` don't count and move to the first other section)
 - Moving an item to another section appends it at the end of that section.
 - Tests for each action, including permissions (student → 403) and validation errors.
 
@@ -253,7 +266,10 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
 - Add `movie` to the item types; shop section "Shows & movies" holds `show`, `book`, `movie`. The library
   panel labels movies as "Movie".
 - Switch both bookshelf items' sprite to the `shelf-empty` assets (catalog update in a new migration or
-  seed step, idempotent).
+  seed step, idempotent). The asset is already in each bookshelf's `shelf_layout.empty`
+  (`{asset, rect: [0,0,28,40]}`), so the switch is `sprite = shelfLayout.empty`.
+- `shelf_layout` as seeded: `{capacity: 15, dvd: {w: 3, h: 8, gap: 1, asset: <dvd-blank id>},
+  rows: [{x, y, w, h} ×3], empty: {asset, rect}}` (rows = `shelves[id]` from `shelf-layout.json`).
 - Pure function in `game-model.js`:
   `dvdLayout(titles, shelfLayout, dvd) → {placed: [{id, x, y, tint, spine}], hidden: n}`, where `titles` =
   the student's owned `show`/`movie` items **sorted by purchase time** (the DVD counter).
@@ -281,6 +297,8 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
 - Run the full test suite and a full browser pass of the flows from steps 4, 6 and 8.
 - Ask the user before any deploy; give them the exact order: set `DATABASE_URL` → deploy preview (the
   build runs migrations) → `npm run seed-catalog` against that database → check → production.
+  `npm run seed-catalog` with `DATABASE_URL` refuses to run unless the **Blob** store is configured too
+  (`BLOB_READ_WRITE_TOKEN` in `.env.local`, no `LOCAL_STORE_DIR`): the files must go where the site reads them.
 
 ---
 
@@ -381,3 +399,35 @@ Newest entry last. Copy this template:
   on migrating legacy docs. Tests need `process.env.LOCAL_STORE_DIR` set to a temp dir (see
   `test/assets.test.js`), or `writeFileBytes` throws "Storage is not connected".
 - Commit: see `git log` ("room-shop step 2")
+
+### Step 3 · 2026-11-12 · DONE
+- Did: `lib/catalog.js`: `listItems({includeHidden, includeDeleted})` (section order, then position),
+  `getItem(id)` (any status), `listSections()`, `itemOut(row)`, and validated writes `createItem`,
+  `updateItem` (a new `sectionId` appends at the end), `moveItem`, `setStatus`, `reorder(sectionId, ids)`,
+  `createSection({id?, label})`, `renameSection`, `reorderSections(ids)`, `deleteSection`. Errors are
+  `HttpError` 404/409/422; FK violations (unknown picture/section) become 422. One default per type is
+  enforced on write. `db/seed/catalog.json`: snapshot of `BUILTIN_ITEMS` (rects inline, `lang` dropped:
+  unused) and today's shop sections. `lib/seed-catalog.js` `seedCatalog({overrides?})` → report
+  `{sheet, sectionsAdded, itemsAdded, assetsMigrated, remapped, shelvesSet, warnings}`;
+  `scripts/seed-catalog.mjs` = `npm run seed-catalog` (reads .env.local, migrates, seeds).
+- Decisions/changes vs plan: (1) The seed is **add-only**: existing items/sections/assets are never
+  changed, so it is safe to re-run after teachers edit the shop; overrides are applied only when an item is
+  first inserted. Shelf layouts are set only where `shelf_layout` is NULL. (2) Item shape adds `builtin`
+  (`!id.startsWith('u-')`) and `shelfLayout`; `spine` is `{asset}`. (3) Shows/books/movies need no
+  picture (`CONTENT_TYPES`). (4) Section label kept as today's "Shows & books", not "Shows & movies", so
+  step 4 has no visible change. (5) A custom item whose old upload is missing is skipped with a warning.
+  (6) Old uploads are migrated with the sniffed mime (no declared one), so a mislabelled one gets a new id
+  and the item sprite is remapped; re-runs detect that and stay quiet. (7) `deleteSection` moves deleted
+  items to the first other section. (8) `npm run seed-catalog` refuses `DATABASE_URL` + a local file
+  store. Edited steps 4, 5, 7 and 9.
+- How to verify: `npm test`: 32 passing (`test/catalog.test.js` 11, `test/seed-catalog.test.js` 5).
+  `PGLITE_DIR=<tmp> LOCAL_STORE_DIR=<tmp> npm run seed-catalog` twice: first "sections added: 4; items
+  added: 40; shelf layouts set: 2", second all zeros; 4 files (sheet, dvd-blank, 2 empty shelves).
+- Env/infra state: Neon connected on Vercel (per the user) but **not seeded**; nothing was run against it
+  (no credentials locally). The guard against `DATABASE_URL` + local files wasn't run (the tool call was
+  blocked); it's a two-line check at the top of `scripts/seed-catalog.mjs`.
+- Not done / known issues: the game still uses `BUILTIN_ITEMS` + `config.json`; nothing reads the catalog
+  yet (step 4). Neon's transaction path (`tx` over WebSocket) is still untested against a real Neon.
+- Next agent: step 4. Don't deploy it before the Neon DB is seeded. `effectiveConfig` normalises defaults
+  "last one wins"; the catalog enforces one default per type on write, so `furnished` can trust `default`.
+- Commit: see `git log` ("room-shop step 3")
