@@ -98,8 +98,11 @@ npm test               # added in step 1: node --test
 - `.env.local` needs `TEACHER_LOGIN`, `TEACHER_PASSWORD`, `SESSION_SECRET` (see README). Never print or
   commit their values. If you need to sign in during a browser check and don't have credentials, ask the
   user to sign in in the browser pane.
-- After step 1, local dev and tests use **PGlite** (in-process Postgres, no server) when `DATABASE_URL` is
-  not set, and Neon when it is. Dev data lives in `.pglite/` (delete the folder to start over);
+- After step 1, local dev and tests use **PGlite** (in-process Postgres, no server) when no database
+  address is set, and Neon when it is. The address is `DATABASE_URL`, or `NARUTO_STORAGE_DATABASE_URL`
+  (what Vercel's Neon integration actually set, with the prefix `NARUTO_STORAGE`); see `databaseUrl()` in
+  `lib/db.js`. `vercel env pull` writes `[SENSITIVE]` for secret values, so for a local seed against Neon
+  the real address must be added to `.env.local` by hand as `DATABASE_URL=...`. Dev data lives in `.pglite/` (delete the folder to start over);
   `npm run dev` and `npm run migrate` apply migrations. New migrations: add `db/migrations/NNN_name.sql`
   (never edit an applied one).
 - Tests: `npm test` runs `NODE_ENV=test node --test test/`. Every DB test file must call
@@ -503,3 +506,20 @@ Newest entry last. Copy this template:
   read-only (`SOON` note) and should become the real one. Toasts on errors: the API's `error` text is
   written for the teacher.
 - Commit: see `git log` ("room-shop step 5")
+
+### Fix after step 5 · 2026-11-12 · DONE (not a plan step)
+- Did: `vercel env pull` showed Vercel's Neon integration was connected with the prefix `NARUTO_STORAGE`, so
+  production has `NARUTO_STORAGE_DATABASE_URL` and **no `DATABASE_URL`**. Added `databaseUrl()` and
+  `DB_URL_VARS` to `lib/db.js` (DATABASE_URL first, then NARUTO_STORAGE_DATABASE_URL; a non-`postgres://`
+  value such as `[SENSITIVE]` throws a 503 instead of being skipped). Used by `pick()`, `dbConfigured()`,
+  `scripts/build-seed.mjs` and `scripts/seed-catalog.mjs`. `.gitignore` gained `.vercel` and `.env*` (added
+  by `vercel link`).
+- Correction to the step 2 log: migrations have **never** run in a Vercel build, because `DATABASE_URL`
+  didn't exist there. The next deploy's build will run them now.
+- How to verify: `npm test`: 52 passing (2 new in `test/db.test.js`). Not run against real Neon.
+- Env/infra state: the Vercel CLI is installed and the folder is linked (`.vercel/`, project
+  naruto-naruto-study-site). `.env.local` now holds the pulled production variables, with placeholders for
+  secrets (including `VERCEL=1`), so `npm run dev` won't work with it until it's set back to local values.
+  Neon is still **not seeded**. Blob for the seed: `BLOB_STORE_ID` + `VERCEL_OIDC_TOKEN` (expires after
+  about 12 h; pull again).
+- Commit: see `git log` ("room-shop: read Vercel's prefixed Neon variable")

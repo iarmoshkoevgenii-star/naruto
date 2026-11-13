@@ -1,6 +1,6 @@
 /* npm run seed-catalog: apply pending migrations, then fill the catalog from the built-in items and the
    teacher's overrides (lib/seed-catalog.js). Safe to run again: it only adds what is missing.
-   Uses DATABASE_URL (Neon) and the Blob store when set (.env.local / .env), else .pglite/ and .local-store/. */
+   Uses DATABASE_URL or NARUTO_STORAGE_DATABASE_URL (Neon) and the Blob store when set (.env.local / .env), else .pglite/ and .local-store/. */
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,8 +17,11 @@ for (const file of [".env.local", ".env"]) {
 // Same default as npm run dev: no Blob credentials -> ./.local-store.
 if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.BLOB_STORE_ID && process.env.LOCAL_STORE_DIR === undefined) process.env.LOCAL_STORE_DIR = ".local-store";
 // Rows in Neon pointing at files on this laptop would break every picture on the site.
-if (process.env.DATABASE_URL && process.env.LOCAL_STORE_DIR) {
-  console.error("DATABASE_URL points at a real database but pictures would go to a local folder. Set BLOB_READ_WRITE_TOKEN (and unset LOCAL_STORE_DIR) to seed the real site.");
+const { databaseUrl } = await import("../lib/db.js");
+let dbUrl;
+try { dbUrl = databaseUrl(); } catch (e) { console.error(e.message + " Put the real Neon address in .env.local as DATABASE_URL=postgresql://..."); process.exit(1); }
+if (dbUrl && process.env.LOCAL_STORE_DIR) {
+  console.error("The database address points at a real database but pictures would go to a local folder. Set BLOB_READ_WRITE_TOKEN (and unset LOCAL_STORE_DIR) to seed the real site.");
   process.exit(1);
 }
 

@@ -73,3 +73,30 @@ test("a failing transaction leaves nothing behind", async () => {
   }), /boom/);
   assert.equal((await query("SELECT * FROM items")).length, 0);
 });
+
+test("databaseUrl: DATABASE_URL first, then Vercel's prefixed NARUTO_STORAGE_DATABASE_URL", async () => {
+  const { databaseUrl } = await import("../lib/db.js");
+  const a = "postgresql://u:p@a.example/db", b = "postgres://u:p@b.example/db";
+  assert.equal(databaseUrl({}), null);
+  assert.equal(databaseUrl({ NARUTO_STORAGE_DATABASE_URL: b }), b);
+  assert.equal(databaseUrl({ DATABASE_URL: a, NARUTO_STORAGE_DATABASE_URL: b }), a);
+  assert.equal(databaseUrl({ DATABASE_URL: " ", NARUTO_STORAGE_DATABASE_URL: b }), b, "blank counts as unset");
+  assert.equal(databaseUrl({ DATABASE_URL: a, NARUTO_STORAGE_DATABASE_URL: "[SENSITIVE]" }), a, "a real DATABASE_URL beats the placeholder");
+  assert.throws(() => databaseUrl({ NARUTO_STORAGE_DATABASE_URL: "[SENSITIVE]" }), e => e.status === 503 && /placeholder/.test(e.message));
+  assert.throws(() => databaseUrl({ DATABASE_URL: "mysql://x" }), e => e.status === 503 && /DATABASE_URL/.test(e.message));
+});
+
+test("dbConfigured on Vercel follows the prefixed variable too", async () => {
+  const { dbConfigured } = await import("../lib/db.js");
+  const saved = { ...process.env };
+  try {
+    process.env.VERCEL = "1";
+    delete process.env.DATABASE_URL;
+    delete process.env.NARUTO_STORAGE_DATABASE_URL;
+    assert.equal(dbConfigured(), false);
+    process.env.NARUTO_STORAGE_DATABASE_URL = "postgresql://u:p@a.example/db";
+    assert.equal(dbConfigured(), true);
+  } finally {
+    for (const k of ["VERCEL", "DATABASE_URL", "NARUTO_STORAGE_DATABASE_URL"]) if (k in saved) process.env[k] = saved[k]; else delete process.env[k];
+  }
+});

@@ -1,4 +1,4 @@
-/* npm run migrate: apply pending catalog migrations to DATABASE_URL (Neon), or to .pglite/ locally.
+/* npm run migrate: apply pending catalog migrations to DATABASE_URL / NARUTO_STORAGE_DATABASE_URL (Neon), or to .pglite/ locally.
    Reads .env.local / .env like npm run dev. */
 import { readFileSync } from "node:fs";
 import path from "node:path";
