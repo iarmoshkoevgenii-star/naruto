@@ -9,10 +9,19 @@
    POST /api/game?action=grant            {student, xp, coins, note}                         (teacher)
    POST /api/game?action=reset            {student}                                          (teacher)
    POST /api/game?action=config           {overrides: {rules}}                               (teacher)
-   POST /api/game?action=upload           {name, dataUrl, w, h}                              (teacher) */
+   POST /api/game?action=upload           {name, dataUrl, w, h}                              (teacher)
+   Shop management (teacher), each answering {result, config} with the teacher's config:
+   POST /api/game?action=item.create      {name, type, sectionId, price, minLevel, sprite: {asset, rect} | surface, sub?, cover?, spine?, isDefault?}
+   POST /api/game?action=item.update      {id, ...fields}  (name, sub, price, minLevel, sectionId, sprite, surface, cover, spine, isDefault)
+   POST /api/game?action=item.hide|item.unhide|item.delete|item.restore   {id}
+   POST /api/game?action=item.reorder     {sectionId, ids}   (the section's full new order)
+   POST /api/game?action=section.create   {label}
+   POST /api/game?action=section.rename   {id, label}
+   POST /api/game?action=section.reorder  {ids}              (every section, in the new order)
+   POST /api/game?action=section.delete   {id}               (only when empty) */
 import { HttpError, json, run, guardWrite, readBody, param } from "../lib/http.js";
 import { requireSession } from "../lib/session.js";
-import { loadConfig, clientConfig, saveOverrides, gameOf, summary, award, buy, equip, grant, resetGame, storeAsset } from "../lib/game.js";
+import { loadConfig, clientConfig, saveOverrides, gameOf, summary, award, buy, equip, grant, resetGame, storeAsset, catalogAction, CATALOG_OPS } from "../lib/game.js";
 import { getAsset } from "../lib/assets.js";
 import { listUploads } from "../lib/catalog.js";
 import { getAccount } from "../lib/accounts.js";
@@ -71,7 +80,13 @@ export async function POST(request) {
         if (s.role !== "teacher") throw new HttpError(403, "Only the teacher can do this.");
         return json({ asset: await storeAsset(body.name, body.dataUrl, body.w, body.h, body.kind) });
       }
-      default: throw new HttpError(404, "Unknown action.");
+      default: {
+        if (!CATALOG_OPS.includes(action)) throw new HttpError(404, "Unknown action.");
+        if (s.role !== "teacher") throw new HttpError(403, "Only the teacher can do this.");
+        const result = await catalogAction(action, body);
+        const { config } = await loadConfig({ fresh: true });
+        return json({ result, config: clientConfig(config, { role: "teacher", assets: await listUploads() }) });
+      }
     }
   });
 }

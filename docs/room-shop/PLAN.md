@@ -237,7 +237,7 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
 - Browser check: room, shop and bookshelf panel look exactly as before (compare with `git stash` or
   screenshots).
 
-### Step 5: Admin API · `TODO`
+### Step 5: Admin API · `DONE`
 - `lib/catalog.js` (step 3) already validates and implements all of these (`createItem`, `updateItem`,
   `moveItem`, `setStatus`, `reorder`, `createSection`, `renameSection`, `reorderSections`,
   `deleteSection`), throwing 404/409/422 `HttpError`s; this step is mostly wiring, permissions and tests.
@@ -258,6 +258,11 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
   shop" form, and only the Rules tab saves (`POST ?action=config {overrides: {rules}}`). Uploads come
   from `data.config.assets` (`listUploads()`, newest first); items from `data.config.items` (teachers get
   every status, filter out `deleted` yourself). `TYPES` is still defined there, unused, for the new form.
+- API (step 5): `POST /api/game?action=<op>` with the ops listed at the top of `api/game.js`
+  (`item.create|update|hide|unhide|delete|restore|reorder`, `section.create|rename|reorder|delete`).
+  Each answers `{result, config}`; `config` is the full teacher config (items of every status, sections,
+  `assets`), so re-render from it. Errors: `{error}` with 403/404/409/422. Field names are the client's
+  (`minLevel`, `sectionId`, `isDefault` or `default`, `cover`, `spine`); unknown fields are a 422.
 - Rework the Shop list tab of `public/js/game-editor.js`: grouped by section; per row thumbnail, name,
   inline price and level, section dropdown, Hide/Unhide, Delete; filter All / Hidden / Deleted (Restore);
   drag handle plus ↑/↓ buttons; section management (add, rename, reorder, delete-when-empty). Each change
@@ -473,3 +478,28 @@ Newest entry last. Copy this template:
   return `clientConfig(..., {role: "teacher", assets: await listUploads()})` after each change so step 6
   can re-render from the response.
 - Commit: see `git log` ("room-shop step 4")
+
+### Step 5 · 2026-11-12 · DONE
+- Did: `lib/game.js`: `catalogAction(op, body)` and `CATALOG_OPS`, a dispatcher over the `lib/catalog.js`
+  writes with a per-action field whitelist (`CREATE_FIELDS`, `UPDATE_FIELDS`; `isDefault` maps to
+  `default`; `id` in a create body is ignored; anything else unknown is a 422). `api/game.js`: the
+  `default:` branch of `POST` routes those ops, teacher-only (403 otherwise), and answers
+  `{result, config: clientConfig(fresh loadConfig, {role: "teacher", assets: listUploads()})}`. Results:
+  item ops → the item; `item.reorder` → `{sectionId, ids}`; `section.reorder` → `{ids}`; section
+  create/rename → the section; `section.delete` → `{id}`. Doc comment at the top of `api/game.js` lists them.
+- Decisions/changes vs plan: (1) No new function file: everything stays in `api/game.js` (function
+  count). (2) Create/update can't set `status`, `shelfLayout`, `type` (update) or `id`: status goes through
+  hide/delete/restore, shelf layouts are seed/step 7 data, and changing type could strand equipped items.
+  `sprite`/`surface` are accepted on both so the editor can swap a picture. Edited step 6 (API summary).
+- How to verify: `npm test`: 50 passing (`test/admin-api.test.js`, 10 tests, calls the real `POST` with
+  sessions signed by throwaway env credentials: student 403 on every op, unknown op 404, carpet create →
+  on sale, validation 422s, update/move/default, hide→unhide→delete→restore with the owner keeping the rug,
+  reorder, section CRUD, delete-when-empty). Mutation check: removing the teacher check fails the 403 test.
+- Env/infra state: unchanged. Neon connected but **not seeded**; don't deploy before `npm run
+  seed-catalog` runs against it. No browser check (no UI in this step).
+- Not done / known issues: the `item.reorder` permission/HTTP path re-reads the whole catalog after each
+  change (one extra query; fine at this size). `item.update` with an empty field list is a no-op 200.
+- Next agent: step 6 (Admin UI). Use the response `config` to re-render; the old editor's items list is
+  read-only (`SOON` note) and should become the real one. Toasts on errors: the API's `error` text is
+  written for the teacher.
+- Commit: see `git log` ("room-shop step 5")
