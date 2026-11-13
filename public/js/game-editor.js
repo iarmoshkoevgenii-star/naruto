@@ -1,8 +1,9 @@
-/* Teacher mode: Room & shop editor. Edits are kept as "overrides" on top of the built-in defaults
-   (game-model.js) and saved together with Save changes. */
+/* Teacher mode: Room & shop editor. The rules are saved with Save changes (config.json). The shop
+   items live in the catalog database; until the new editor (docs/room-shop/PLAN.md, step 6) this page
+   only shows them. */
 import { api, esc, toast } from "./api.js";
 import { itemThumb, spriteUrl } from "./room.js";
-import { effectiveConfig, SLOTS } from "./game-model.js";
+import { effectiveRules, SLOTS } from "./game-model.js";
 
 const TYPES = [...new Set(SLOTS.map(s => s.id.replace(/\d+$/, "")))].concat(["book"]);
 const TYPE_LABEL = t => ({ plant: "Plant (2 spots)", wallpaper: "Wallpaper", floor: "Floor", book: "Book" }[t] || (SLOTS.find(s => s.id === t) || { label: t }).label);
@@ -50,33 +51,31 @@ export async function gameEditorPage(main) {
   document.title = "Room & shop — Natalia’s Language School";
   main.innerHTML = '<p class="loading">Loading…</p>';
   const data = (await api("GET", "/api/game")).data;
-  let saved = clone(data.overrides || { rules: {}, items: {}, removed: [], assets: [] });
+  let saved = { rules: clone((data.overrides || {}).rules || {}) };
   let ov = clone(saved);
-  ov.rules = ov.rules || {}; ov.items = ov.items || {}; ov.assets = ov.assets || [];
+  let assets = data.config.assets || [];
   let tab = new URLSearchParams(location.search).get("t") || "shop";
   let picked = null; // {asset, rect}
   const dirty = () => JSON.stringify(ov) !== JSON.stringify(saved);
-  const cfg = () => effectiveConfig(ov);
-  const setItem = (id, patch) => { ov.items[id] = { ...(ov.items[id] || {}), ...patch }; };
+  const cfg = () => ({ rules: effectiveRules(ov.rules), items: data.config.items.filter(i => i.status !== "deleted") });
+  const SOON = "Changing shop items here is coming with the next update of this page.";
 
   function shopTab() {
     const items = cfg().items;
     const rows = items.map(it => {
       const editable = !!it.sprite || !!it.surface || it.type === "show" || it.type === "book";
       return '<tr data-id="' + esc(it.id) + '"><td class="ge-pic">' + (editable ? itemThumb(it, 2) : "") + "</td>" +
-        '<td><input class="ge-in" data-f="name" value="' + esc(it.name) + '" aria-label="Name"><small>' + esc(TYPE_LABEL(it.type)) + (it.builtin ? "" : ", your item") + "</small></td>" +
-        '<td><input class="ge-in num" type="number" min="0" data-f="price" value="' + (it.price ?? 0) + '" aria-label="Price"></td>' +
-        '<td><input class="ge-in num" type="number" min="1" data-f="minLevel" value="' + (it.minLevel ?? 1) + '" aria-label="Level"></td>' +
-        '<td><input type="checkbox" data-f="active"' + (it.active !== false ? " checked" : "") + ' aria-label="On sale"></td>' +
-        "<td>" + (it.type === "show" || it.type === "book" ? "" : '<input type="checkbox" data-f="default"' + (it.default ? " checked" : "") + ' aria-label="Starting item">') + "</td>" +
-        "<td>" + (it.builtin ? "" : '<button type="button" class="link-b danger" data-del>Delete</button>') + "</td></tr>";
+        '<td><input class="ge-in" data-f="name" value="' + esc(it.name) + '" aria-label="Name" disabled><small>' + esc(TYPE_LABEL(it.type)) + (it.builtin ? "" : ", your item") + "</small></td>" +
+        '<td><input class="ge-in num" type="number" min="0" data-f="price" value="' + (it.price ?? 0) + '" aria-label="Price" disabled></td>' +
+        '<td><input class="ge-in num" type="number" min="1" data-f="minLevel" value="' + (it.minLevel ?? 1) + '" aria-label="Level" disabled></td>' +
+        '<td><input type="checkbox" data-f="active"' + (it.active ? " checked" : "") + ' aria-label="On sale" disabled></td>' +
+        "<td>" + (it.type === "show" || it.type === "book" ? "" : '<input type="checkbox" data-f="default"' + (it.default ? " checked" : "") + ' aria-label="Starting item" disabled>') + "</td><td></td></tr>";
     }).join("");
-    return '<p class="note">Students start with the <b>starting items</b> (one per kind) and can buy the rest. Unticking <b>On sale</b> hides an item from the shop; students who bought it keep it.</p>' +
+    return '<p class="note">Students start with the <b>starting items</b> (one per kind) and can buy the rest. Items that are not <b>on sale</b> are hidden from the shop; students who bought them keep them.</p><p class="warn">' + SOON + "</p>" +
       '<div class="tbl"><table class="ge-t"><thead><tr><th></th><th>Name</th><th>Price</th><th>Level</th><th>On sale</th><th>Starting item</th><th></th></tr></thead><tbody>' + rows + "</tbody></table></div>";
   }
 
   function uploadsTab() {
-    const assets = ov.assets || [];
     return '<p class="note">Upload a sprite sheet or a single picture. The pieces are found automatically; click one to make it a shop item or a starting item.</p>' +
       '<div class="g-actions"><label class="p-btn primary"><input type="file" accept="image/png,image/webp,image/gif,image/jpeg" data-upload hidden>Upload a picture</label><span class="note" data-up-state></span></div>' +
       (assets.length ? '<div class="ge-assets">' + assets.map(a => '<button type="button" class="ge-asset" data-asset="' + a.id + '"><img src="/api/game?asset=' + a.id + '" alt=""><span>' + esc(a.name) + "</span><small>" + a.w + "×" + a.h + "</small></button>").join("") + "</div>" : '<p class="empty-s">No pictures uploaded yet.</p>') +
@@ -102,12 +101,6 @@ export async function gameEditorPage(main) {
 
   main.addEventListener("input", e => {
     const t = e.target;
-    const row = t.closest("tr[data-id]");
-    if (row && t.dataset.f && t.type !== "checkbox") {
-      const v = t.type === "number" ? Math.max(0, Math.round(Number(t.value) || 0)) : t.value;
-      setItem(row.dataset.id, { [t.dataset.f]: t.dataset.f === "minLevel" ? Math.max(1, v) : v });
-      markDirty(); return;
-    }
     if (t.dataset.rule) { ov.rules[t.dataset.rule] = Math.max(t.dataset.rule === "coinsPerLevel" || t.dataset.rule === "startCoins" ? 0 : 1, Math.round(Number(t.value) || 0)); markDirty(); return; }
     const ar = t.closest("tr[data-act]");
     if (ar && t.dataset.a && t.type !== "checkbox") {
@@ -118,17 +111,6 @@ export async function gameEditorPage(main) {
   });
   main.addEventListener("change", async e => {
     const t = e.target;
-    const row = t.closest("tr[data-id]");
-    if (row && t.type === "checkbox") {
-      const id = row.dataset.id;
-      if (t.dataset.f === "default" && t.checked) {
-        const type = cfg().items.find(i => i.id === id).type;
-        cfg().items.filter(i => i.type === type && i.id !== id && i.default).forEach(i => setItem(i.id, { default: false }));
-        setItem(id, { default: true }); render(); markDirty(); return;
-      }
-      if (t.dataset.f === "default" && !t.checked) { t.checked = true; toast("Choose another starting item of this kind instead"); return; }
-      setItem(id, { [t.dataset.f]: t.checked }); markDirty(); return;
-    }
     const ar = t.closest("tr[data-act]");
     if (ar && t.type === "checkbox") {
       ov.rules.activities = ov.rules.activities || {};
@@ -143,8 +125,7 @@ export async function gameEditorPage(main) {
         state.textContent = "Uploading…";
         const dataUrl = await readFile(file), img = await loadImage(dataUrl);
         const { data } = await api("POST", "/api/game?action=upload", { name: file.name, dataUrl, w: img.naturalWidth, h: img.naturalHeight });
-        ov.assets = [...(ov.assets || []).filter(a => a.id !== data.asset.id), data.asset];
-        saved.assets = clone(ov.assets);
+        assets = [data.asset, ...assets.filter(a => a.id !== data.asset.id)];
         render(); openSlicer(data.asset);
         toast("Picture uploaded");
       } catch (err) { state.textContent = ""; toast(err.message); }
@@ -153,12 +134,10 @@ export async function gameEditorPage(main) {
   main.addEventListener("click", async e => {
     const t = e.target;
     const tb = t.closest("[data-tab]"); if (tb) { tab = tb.dataset.tab; history.replaceState(null, "", "/room-editor?t=" + tab); render(); return; }
-    const del = t.closest("[data-del]");
-    if (del) { const id = del.closest("tr").dataset.id; delete ov.items[id]; render(); markDirty(); return; }
-    const as = t.closest("[data-asset]"); if (as) { openSlicer((ov.assets || []).find(a => a.id === as.dataset.asset)); return; }
+    const as = t.closest("[data-asset]"); if (as) { openSlicer(assets.find(a => a.id === as.dataset.asset)); return; }
     if (t.closest("[data-save]")) {
       const b = t.closest("[data-save]"); b.disabled = true; b.textContent = "Saving…";
-      try { await api("POST", "/api/game?action=config", { overrides: ov }); saved = clone(ov); toast("Saved: students see the changes now"); render(); }
+      try { await api("POST", "/api/game?action=config", { overrides: { rules: ov.rules } }); saved = clone(ov); toast("Saved: students see the changes now"); render(); }
       catch (err) { toast(err.message + (err.data && err.data.errors ? " " + err.data.errors.join(" ") : "")); b.disabled = false; b.textContent = "Save changes"; }
     }
   });
@@ -178,24 +157,8 @@ export async function gameEditorPage(main) {
       '<div class="g-actions"><button type="button" class="p-btn small" data-whole>Use the whole picture</button></div><div data-newitem></div></section>';
     const form = rect => {
       picked = { asset: asset.id, rect };
-      box.querySelector("[data-newitem]").innerHTML = '<form class="ge-new"><div class="ge-prev">' + itemThumb({ sprite: picked }, 3) + "<small>" + rect[2] + "×" + rect[3] + " px</small></div>" +
-        '<label class="p-field"><span>Name</span><input name="name" required maxlength="60" placeholder="Velvet armchair"></label>' +
-        '<label class="p-field"><span>Where it goes</span><select name="type">' + TYPES.filter(t => !["wallpaper", "floor", "book"].includes(t)).map(t => '<option value="' + t + '">' + esc(TYPE_LABEL(t)) + "</option>").join("") + "</select></label>" +
-        '<label class="p-field"><span>Price</span><input name="price" type="number" min="0" value="1"></label><label class="p-field"><span>Level</span><input name="minLevel" type="number" min="1" value="1"></label>' +
-        '<label class="p-check"><input type="checkbox" name="default"> Starting item (replaces the current one for everyone)</label>' +
-        '<div class="g-actions"><button type="submit" class="p-btn primary">Add to the shop</button></div></form>';
-      box.querySelector(".ge-new").addEventListener("submit", ev => {
-        ev.preventDefault();
-        const f = ev.target, name = f.name.value.trim();
-        if (!name) { f.name.focus(); return; }
-        const type = f.type.value, id = "u-" + asset.id.slice(0, 8) + "-" + rect.join("-");
-        if (f.default.checked) cfg().items.filter(i => i.type === type && i.default).forEach(i => setItem(i.id, { default: false }));
-        ov.items[id] = { name, type, sprite: picked, price: Math.max(0, +f.price.value || 0), minLevel: Math.max(1, +f.minLevel.value || 1), default: f.default.checked, active: true };
-        toast(name + " added. Save changes to publish it.");
-        markDirty();
-        box.querySelector("[data-newitem]").innerHTML = '<p class="note">' + esc(name) + " added to the shop list. Pick another piece, or save your changes.</p>";
-      });
-      box.querySelector("[name=name]").focus();
+      box.querySelector("[data-newitem]").innerHTML = '<div class="ge-new"><div class="ge-prev">' + itemThumb({ sprite: picked }, 3) + "<small>" + rect[2] + "×" + rect[3] + " px</small></div>" +
+        '<p class="note">' + SOON + "</p></div>";
     };
     box.querySelector(".ge-sheet").addEventListener("click", ev => {
       const b = ev.target.closest("[data-piece]"); if (!b) return;

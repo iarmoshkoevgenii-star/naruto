@@ -89,14 +89,13 @@ test("getAsset returns null for unknown or malformed ids", async () => {
   assert.equal(await getAsset(null), null);
 });
 
-test("the upload API path (storeAsset) stores via putAsset and still lists the picture for the editor", async () => {
+test("the upload API path (storeAsset) stores via putAsset and lists the picture for the editor", async () => {
   const { storeAsset } = await import("../lib/game.js");
-  const { readDoc } = await import("../lib/store.js");
+  const { listUploads } = await import("../lib/catalog.js");
   const entry = await storeAsset("Carpet", "data:image/png;base64," + PNG.toString("base64"), 12.4, 6);
   assert.deepEqual({ name: entry.name, w: entry.w, h: entry.h }, { name: "Carpet", w: 12, h: 6 });
   assert.equal(entry.id, assetIdOf(PNG, "image/png"));
   assert.deepEqual(Buffer.from((await getAsset(entry.id)).bytes), PNG);
-  const cfg = await readDoc("school/game/config.json");
-  assert.deepEqual(cfg.data.assets.map(a => a.id), [entry.id]);
+  assert.deepEqual((await listUploads()).map(a => a.id), [entry.id]);
   await assert.rejects(storeAsset("x", "data:image/png;base64," + Buffer.from("not a png").toString("base64")), e => e.status === 422);
 });

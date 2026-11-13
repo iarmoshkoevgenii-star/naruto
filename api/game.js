@@ -1,5 +1,6 @@
 /* The room game.
-   GET  /api/game                         -> config (rules, items, assets) and the signed-in student's progress
+   GET  /api/game                         -> config (rules, sections, items; teachers also get uploads) and the
+                                             signed-in student's progress
    GET  /api/game?student=<id>            -> (teacher) that student's progress
    GET  /api/game?asset=<id>              -> an uploaded picture
    POST /api/game?action=award            {kind: episode|training|grammar, ref, answers?}   (student)
@@ -7,16 +8,14 @@
    POST /api/game?action=equip            {slot, item | null}                                (student)
    POST /api/game?action=grant            {student, xp, coins, note}                         (teacher)
    POST /api/game?action=reset            {student}                                          (teacher)
-   POST /api/game?action=config           {overrides}                                        (teacher)
+   POST /api/game?action=config           {overrides: {rules}}                               (teacher)
    POST /api/game?action=upload           {name, dataUrl, w, h}                              (teacher) */
 import { HttpError, json, run, guardWrite, readBody, param } from "../lib/http.js";
 import { requireSession } from "../lib/session.js";
-import { loadConfig, saveOverrides, gameOf, summary, award, buy, equip, grant, resetGame, storeAsset } from "../lib/game.js";
+import { loadConfig, clientConfig, saveOverrides, gameOf, summary, award, buy, equip, grant, resetGame, storeAsset } from "../lib/game.js";
 import { getAsset } from "../lib/assets.js";
+import { listUploads } from "../lib/catalog.js";
 import { getAccount } from "../lib/accounts.js";
-import { SLOTS, ROOM } from "../public/js/game-model.js";
-
-const publicConfig = c => ({ rules: c.rules, items: c.items, assets: c.assets, slots: SLOTS, room: ROOM });
 
 export async function GET(request) {
   return run(async () => {
@@ -32,10 +31,14 @@ export async function GET(request) {
     if (student) {
       if (s.role !== "teacher") throw new HttpError(403, "Only the teacher can see this.");
       if (!(await getAccount(student, { fresh: true }))) throw new HttpError(404, "Student not found.");
-      return json({ config: publicConfig(config), me: summary(await gameOf(student), config) });
+      return json({ config: clientConfig(config, { role: "teacher", assets: [] }), me: summary(await gameOf(student), config) });
     }
-    const body = { config: publicConfig(config), role: s.role };
-    if (s.role === "student") body.me = summary(await gameOf(s.id), config);
+    const body = { role: s.role };
+    if (s.role === "student") {
+      const game = await gameOf(s.id);
+      body.config = clientConfig(config, { role: "student", game });
+      body.me = summary(game, config);
+    } else body.config = clientConfig(config, { role: s.role, assets: s.role === "teacher" ? await listUploads() : [] });
     if (s.role === "teacher") { body.overrides = overrides; body.etag = etag; }
     return json(body);
   });
@@ -62,7 +65,7 @@ export async function POST(request) {
       case "reset": return json(await resetGame(await teacher()));
       case "config": {
         if (s.role !== "teacher") throw new HttpError(403, "Only the teacher can do this.");
-        return json({ config: publicConfig(await saveOverrides(body.overrides || {})) });
+        return json({ config: clientConfig(await saveOverrides(body.overrides || {}), { role: "teacher", assets: await listUploads() }) });
       }
       case "upload": {
         if (s.role !== "teacher") throw new HttpError(403, "Only the teacher can do this.");

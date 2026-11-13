@@ -207,7 +207,7 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
   `BUILTIN_ITEMS` in step 4 doesn't break the seed. The seed only **adds** missing rows; it never edits
   existing ones.
 
-### Step 4: Switch the game to the catalog (no visible change) · `TODO`
+### Step 4: Switch the game to the catalog (no visible change) · `DONE`
 - ⚠ From this step on, the production site needs Neon: on Vercel without `DATABASE_URL`, `lib/db.js`
   throws a 503 ("shop database is not connected"). Check the log for whether Neon is connected; if not,
   remind the user that this commit must not be deployed until Neon is connected and seeded (step 9 order).
@@ -253,6 +253,11 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
 - Tests for each action, including permissions (student → 403) and validation errors.
 
 ### Step 6: Admin UI ("Room & shop") · `TODO`
+- State after step 4: `public/js/game-editor.js` shows the catalog **read-only** (inputs disabled, a
+  "coming with the next update" note, `SOON`), the slicer shows the picked piece but has no "Add to the
+  shop" form, and only the Rules tab saves (`POST ?action=config {overrides: {rules}}`). Uploads come
+  from `data.config.assets` (`listUploads()`, newest first); items from `data.config.items` (teachers get
+  every status, filter out `deleted` yourself). `TYPES` is still defined there, unused, for the new form.
 - Rework the Shop list tab of `public/js/game-editor.js`: grouped by section; per row thumbnail, name,
   inline price and level, section dropdown, Hide/Unhide, Delete; filter All / Hidden / Deleted (Restore);
   drag handle plus ↑/↓ buttons; section management (add, rename, reorder, delete-when-empty). Each change
@@ -292,6 +297,8 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
   in production; otherwise keep it and say so in the log). The legacy pieces are: the `getAsset` fallback
   to `school/game/assets/<id>.json` in `lib/assets.js`, the `dbConfigured()` branches in `lib/assets.js`
   and `storeAsset` (`lib/game.js`), and `dbConfigured()` itself in `lib/db.js` if nothing else uses it.
+- `school/game/config.json` still carries the old `items`, `removed` and `assets` (step 4 keeps them
+  because the seed reads them). Once the seed has run in production, `saveOverrides` can drop them.
 - Update `README.md` (room game, Room & shop editor, new env var `DATABASE_URL`, `npm run migrate`,
   `npm run seed-catalog`).
 - Run the full test suite and a full browser pass of the flows from steps 4, 6 and 8.
@@ -431,3 +438,38 @@ Newest entry last. Copy this template:
 - Next agent: step 4. Don't deploy it before the Neon DB is seeded. `effectiveConfig` normalises defaults
   "last one wins"; the catalog enforces one default per type on write, so `furnished` can trust `default`.
 - Commit: see `git log` ("room-shop step 3")
+
+### Step 4 · 2026-11-12 · DONE
+- Did: `lib/game.js`: `loadConfig()` → `{overrides: {rules}, etag, config: {rules, items, sections}}`,
+  rules from `config.json` via `effectiveRules`, items from `listItems({includeHidden, includeDeleted})`
+  (every status, so bought items always resolve), sections from `listSections()`. New
+  `clientConfig(config, {role, game, assets})`: students get active items plus the ones they own;
+  teachers get every item plus `assets`. `saveOverrides` validates and saves `rules` only, keeping the
+  rest of `config.json`. `storeAsset` no longer writes `config.json` `assets`. `lib/catalog.js`:
+  `listUploads()` (kind `sprite`, newest first, `{id, name, w, h, at}`). `api/game.js` uses
+  `clientConfig` (teacher GET and `action=config` include `listUploads()`). `public/js/game-model.js`:
+  removed `ATLAS` import, `BUILTIN_ITEMS`, `effectiveConfig`, `configErrors`; added `effectiveRules`,
+  `rulesErrors`; `owned` no longer auto-owns **deleted** default/free items and `furnished` skips a
+  deleted default. `room.js` `spriteUrl` = `/api/game?asset=<id>` only. `shop.js` renders
+  `config.sections` and filters items by `sectionId` (items arrive in shop order).
+- Decisions/changes vs plan: (1) The old editor edits items as overrides, which nothing reads now, so
+  instead of a throwaway adapter its item list is read-only until step 6 (teacher-visible change; rules
+  still save). (2) `contentAccess`: a show in the catalog needs ownership whatever its status, so a
+  hidden/deleted show is not free (before, a *removed* show became open to all). (3) Students no longer
+  receive `config.assets`. Edited steps 6 and 9.
+- How to verify: `npm test`: 40 passing (`test/game.test.js` 8 new; `test/assets.test.js` upload test
+  now checks `listUploads`). Mutating the student filter or loading only active items makes them fail.
+  Browser: old (HEAD in a temp worktree) and new code side by side on `npm run dev` with throwaway
+  credentials, demo student with teal rug + DH bought: room DOM, all four shop sections and the bookshelf
+  panel are identical apart from the sheet URL (`/game/placeholders.png` → `/api/game?asset=<sheet id>`,
+  200 image/png). Teacher: Room & shop lists 40 items read-only, Rules save works, upload via API is
+  listed in `config.assets`.
+- Env/infra state: unchanged. Neon connected but **not seeded**. **Don't deploy this commit until
+  `npm run seed-catalog` has run against Neon** (otherwise the shop is empty and every game call 503s
+  without `DATABASE_URL`). Local dev needs a seed too: `npm run seed-catalog` once (uses `.pglite/`).
+- Not done / known issues: Neon `tx` path still untested against real Neon. `loadConfig` now does a DB
+  round-trip per game request (items + sections); fine at this size.
+- Next agent: step 5. `lib/catalog.js` writes are ready; wire them in `api/game.js` (teacher only) and
+  return `clientConfig(..., {role: "teacher", assets: await listUploads()})` after each change so step 6
+  can re-render from the response.
+- Commit: see `git log` ("room-shop step 4")

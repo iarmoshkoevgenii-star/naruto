@@ -5,7 +5,8 @@ import { furnished } from "./game-model.js";
 import { notesHtml, fmtWhen, streakCardHtml, daysCardHtml, levelCardHtml, wordsCardHtml, heatHtml, bookingDialog, wordStats } from "./cabinet.js";
 import { dayOf, addDays } from "./stats.js";
 
-export const spriteUrl = s => s.sheet === "placeholders" ? "/game/placeholders.png" : "/api/game?asset=" + s.asset;
+/* Every picture is an asset now (the placeholder sheet too): {asset, rect}. */
+export const spriteUrl = s => "/api/game?asset=" + encodeURIComponent(s.asset);
 
 export function surfaceCss(s) {
   const a = s.accent, c = s.color;
