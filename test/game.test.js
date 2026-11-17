@@ -68,7 +68,7 @@ test("the student's config: active items plus the ones they own, in shop order, 
   const { config } = await loadConfig();
   const c = clientConfig(config, { role: "student", game: await gameOf("ann") });
   assert.ok(c.items.some(i => i.id === "rug-teal"));
-  assert.deepEqual(c.sections.map(s => s.label), ["Shows & books", "Furniture", "Walls & floors", "Decor"]);
+  assert.deepEqual(c.sections.map(s => s.label), ["Shows & movies", "Furniture", "Walls & floors", "Decor"]);
   assert.equal(c.items[0].id, DH);
   assert.equal(c.assets, undefined, "students don't get the upload list");
   assert.ok(Array.isArray(c.slots) && c.room.w === 192);

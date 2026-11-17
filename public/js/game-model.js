@@ -27,7 +27,7 @@ export const SLOTS = [
   { id: "clock", removable: true, label: "Clock", x: 20, y: 30 },
   { id: "calendar", label: "Calendar", x: 128, y: 42, action: "deadlines", hint: "Calendar: deadlines" },
   { id: "door", label: "Door", x: 168, y: 52, action: "shop", hint: "Door: go to the shop" },
-  { id: "bookshelf", label: "Bookshelf", x: 20, y: 94, action: "library", hint: "Bookshelf: your shows and books" },
+  { id: "bookshelf", label: "Bookshelf", x: 20, y: 94, action: "library", hint: "Bookshelf: your shows, movies and books" },
   { id: "desk", label: "Desk", x: 64, y: 90 },
   { id: "computer", label: "Computer", x: 58, y: 74, z: 91, action: "notifications", hint: "Computer: messages" },
   { id: "diary", label: "Diary", x: 77, y: 76, z: 92, action: "stats", hint: "Diary: your progress" },
@@ -44,9 +44,16 @@ export const slotById = id => SLOTS.find(s => s.id === id) || null;
 export const SLOT_TYPES = { plant: ["plant1", "plant2"] };
 export const spotsFor = type => SLOT_TYPES[type] || [type];
 
-export const ITEM_TYPES = ["show", "book", ...new Set(SLOTS.map(s => s.id.replace(/\d+$/, "")))];
+export const ITEM_TYPES = ["show", "book", "movie", ...new Set(SLOTS.map(s => s.id.replace(/\d+$/, "")))];
 /* Shows, books and movies live on the bookshelf, not in a room spot: they need no picture. */
 export const CONTENT_TYPES = ["show", "book", "movie"];
+/* Shows and movies stand on the bookshelf as DVDs; books are only listed in its panel. */
+export const DVD_TYPES = ["show", "movie"];
+export const DEFAULT_COVER = "#1E5C62";
+/* The page a title opens: built-in titles have one (their id is the content path, e.g.
+   "en/desperate-housewives"); titles a teacher adds in the editor ("u-…") have none yet. */
+export const contentHref = it => (CONTENT_TYPES.includes(it.type) && !String(it.id).startsWith("u-") ? "/" + it.id : null);
+export const TITLE_LABEL = { show: "Show", movie: "Movie", book: "Book" };
 
 /* A copy of ids with `id` moved to index `to` (clamped). Used to build a section's new order. */
 export function moveId(ids, id, to) {
@@ -129,4 +136,34 @@ export function canBuy(item, game, config) {
   if (p.level < (item.minLevel || 1)) return { ok: false, why: "level" };
   if (p.coins < (item.price || 0)) return { ok: false, why: "coins" };
   return { ok: true };
+}
+
+/* ---------- the DVD shelf ---------- */
+/* The student's DVDs: owned shows and movies, oldest purchase first (free titles, owned from the start,
+   come first). Hidden and deleted titles they bought still count. */
+export function shelfTitles(game, config) {
+  const own = owned(game, config), at = new Map();
+  for (const p of (game && game.purchases) || []) if (!at.has(p.item)) at.set(p.item, String(p.at || ""));
+  return config.items
+    .filter(i => DVD_TYPES.includes(i.type) && own.has(i.id))
+    .map((it, n) => ({ it, at: at.get(it.id) ?? "", n }))
+    .sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.n - b.n))
+    .map(x => x.it);
+}
+
+/* Where each DVD stands on a bookshelf, in sprite pixels from the shelf's top-left. Rows fill left to
+   right, top to bottom; a DVD stands on the bottom of its row. shelfLayout (seeded on the bookshelf items):
+   {capacity, dvd: {w, h, gap, asset}, rows: [{x, y, w, h}], empty: {asset, rect}}.
+   -> {placed: [{id, x, y, tint, spine: assetId | null}], hidden: titles that didn't fit}. */
+export function dvdLayout(titles, shelfLayout) {
+  const L = shelfLayout, d = L && L.dvd;
+  if (!d || !Array.isArray(L.rows) || !(d.w > 0)) return { placed: [], hidden: titles.length };
+  const gap = d.gap || 0, step = d.w + gap, spots = [];
+  for (const r of L.rows) {
+    const n = Math.floor((r.w + gap) / step);
+    for (let i = 0; i < n; i++) spots.push({ x: r.x + i * step, y: r.y + r.h - d.h });
+  }
+  const cap = Math.min(spots.length, Number.isInteger(L.capacity) ? L.capacity : spots.length);
+  const placed = titles.slice(0, cap).map((t, i) => ({ id: t.id, x: spots[i].x, y: spots[i].y, tint: t.cover || DEFAULT_COVER, spine: t.spine ? t.spine.asset : null }));
+  return { placed, hidden: Math.max(0, titles.length - cap) };
 }

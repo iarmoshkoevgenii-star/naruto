@@ -77,7 +77,7 @@ test("running the seed twice changes nothing, and it never overwrites the teache
   await updateItem("rug-teal", { price: 77 });
   const before = await dump();
   const r = await seedCatalog({ overrides: { items: { "rug-teal": { price: 5 } } } });
-  assert.deepEqual([r.sectionsAdded, r.itemsAdded, r.assetsMigrated, r.shelvesSet], [[], [], [], []]);
+  assert.deepEqual([r.sectionsAdded, r.itemsAdded, r.assetsMigrated, r.shelvesSet, r.updated], [[], [], [], [], []]);
   assert.deepEqual(await dump(), before);
 });
 
@@ -143,4 +143,31 @@ test("a missing old upload is reported, and its item is skipped (not half-create
   assert.match(r.warnings[0], /missing/);
   assert.match(r.warnings[1], /Item u-ghost: .*not added/);
   assert.equal(await getItem("u-ghost"), null);
+});
+
+test("bookshelves show the empty DVD shelf; the first section is Shows & movies", async () => {
+  const r = await seedCatalog({ overrides: {} });
+  for (const id of ["bookshelf-wood", "bookshelf-white"]) {
+    const b = await getItem(id);
+    assert.deepEqual(b.sprite, b.shelfLayout.empty, id);
+  }
+  assert.equal((await listSections())[0].label, "Shows & movies");
+  assert.deepEqual(r.updated, []);
+});
+
+test("a database seeded before step 7 is brought up to date, but the teacher's changes are kept", async () => {
+  const first = await seedCatalog({ overrides: {} });
+  // the way step 3 left it: bookshelves on the sheet, the old section label
+  await updateItem("bookshelf-wood", { sprite: { asset: first.sheet, rect: ATLAS["bookshelf-wood"] } });
+  await updateItem("bookshelf-white", { sprite: { asset: first.sheet, rect: [0, 0, 5, 5] } }); // a teacher's own choice
+  await query("UPDATE shop_sections SET label = 'Shows & books' WHERE id = 'shows'");
+  const r = await seedCatalog({ overrides: {} });
+  assert.deepEqual(r.updated, ["bookshelf-wood: empty DVD shelf", "shows: renamed to Shows & movies"]);
+  const wood = await getItem("bookshelf-wood");
+  assert.deepEqual(wood.sprite, wood.shelfLayout.empty);
+  assert.deepEqual((await getItem("bookshelf-white")).sprite, { asset: first.sheet, rect: [0, 0, 5, 5] });
+  assert.equal((await listSections())[0].label, "Shows & movies");
+  await query("UPDATE shop_sections SET label = 'Series' WHERE id = 'shows'");
+  assert.deepEqual((await seedCatalog({ overrides: {} })).updated, []);
+  assert.equal((await listSections())[0].label, "Series");
 });

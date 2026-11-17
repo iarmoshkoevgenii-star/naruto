@@ -3,10 +3,11 @@
  "sections": [
   {
    "id": "shows",
-   "label": "Shows & books",
+   "label": "Shows & movies",
    "types": [
     "show",
-    "book"
+    "book",
+    "movie"
    ]
   },
   {

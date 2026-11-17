@@ -275,7 +275,7 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
 - Browser check of the carpet example: upload a rug image as teacher → it shows in the shop for the
   `demo` student → buy → it's in the room. Then hide it: gone from the shop, still in the student's room.
 
-### Step 7: Movie type, DVD data and layout logic · `TODO`
+### Step 7: Movie type, DVD data and layout logic · `DONE`
 - Add `movie` to the item types; shop section "Shows & movies" holds `show`, `book`, `movie`. The library
   panel labels movies as "Movie". `CONTENT_TYPES` (`game-model.js`, step 6) already lists `movie`; the
   editor's type list is built from `ITEM_TYPES`, so adding `movie` there makes it appear in the
@@ -292,6 +292,12 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
   purchases; books ignored; hidden or deleted titles still count.
 
 ### Step 8: DVD rendering · `TODO`
+- From step 7 (`public/js/game-model.js`): `shelfTitles(game, config)` gives the titles in purchase order;
+  `dvdLayout(titles, shelfLayout)` (two arguments: the DVD size is inside `shelfLayout.dvd`) gives
+  `{placed: [{id, x, y, tint, spine}], hidden}`; also `DVD_TYPES`, `DEFAULT_COVER`, `TITLE_LABEL`,
+  `contentHref(item)` (null for the teacher's `u-…` titles, which have no page). The bookshelf a student
+  sees is `furnished(game, config).bookshelf`; its `shelfLayout` may be missing (a teacher's own
+  bookshelf), and then `dvdLayout` places nothing.
 - `public/js/shelf.js`: given the bookshelf slot's position and `dvdLayout`, draws the blank DVD sprite
   for each title at `x, y` inside the shelf, then the spine on top: the uploaded spine image if set
   (scaled to 3×8), otherwise the blank DVD tinted with `cover` (CSS `mix-blend-mode: multiply` or a
@@ -559,3 +565,29 @@ Newest entry last. Copy this template:
   have no episode page (see step 7). Phone layout: the tables scroll sideways inside each section card.
 - Next agent: step 7.
 - Commit: see `git log` ("room-shop step 6")
+
+### Step 7 · 2026-11-17 · DONE
+- Did: `public/js/game-model.js`: `movie` in `ITEM_TYPES`; `DVD_TYPES` (show, movie), `DEFAULT_COVER`,
+  `TITLE_LABEL`, `contentHref(item)`; pure `shelfTitles(game, config)` (owned shows/movies, purchase order,
+  free titles first, hidden/deleted ones they bought included, books left out) and
+  `dvdLayout(titles, shelfLayout)` (5 per 22 px row with 3 px DVDs and 1 px gaps, standing on the row's
+  bottom, capped at `capacity`, rest in `hidden`). `db/seed/catalog.json`: section `shows` is "Shows &
+  movies" and takes `movie`. `lib/seed-catalog.js` step 6 (+ `report.updated`, printed by
+  `npm run seed-catalog`): a bookshelf whose sprite is still the seeded sheet rect gets
+  `sprite = shelf_layout.empty`, and a `shows` section still labelled "Shows & books" is renamed; rows a
+  teacher changed are left alone, and fresh rows aren't reported. Client: `itemThumb` covers for movies,
+  `libraryPanel` labels via `TITLE_LABEL` and links only titles with a page, the shop's owned-title
+  button is "Open" or "On your bookshelf", copy mentions movies.
+- Decisions/changes vs plan: (1) The bookshelf switch and the rename live in the **seed**, not a
+  migration: in production the build runs migrations before the seed, so a migration would find no rows.
+  Local databases seeded earlier need `npm run seed-catalog` once more. (2) `dvdLayout` takes two
+  arguments (the DVD size is in the layout). (3) Teacher-made titles (`u-…`) have no page: no Open link.
+  Edited step 8.
+- How to verify: `npm test`: 64 passing (game-model: movie type, `dvdLayout` 0/4/15/20 titles, spine and
+  default tint, missing layout, `shelfTitles` order/books/hidden/deleted/free, `contentHref`; seed: fresh
+  bookshelves empty + "Shows & movies", an older seed is updated but a teacher's sprite or section name
+  is kept, second run reports nothing). Browser: after re-seeding the dev DB the room's bookshelf is empty
+  and the first shop tab reads "Shows & movies".
+- Env/infra state: unchanged.
+- Next agent: step 8.
+- Commit: see `git log` ("room-shop step 7")

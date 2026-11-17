@@ -1,7 +1,7 @@
 /* The private room in the personal cabinet. Drawn at its base size (ROOM.w x ROOM.h "room pixels")
    and scaled to fit; objects stand at fixed spots (game-model.js SLOTS). */
 import { api, esc, toast } from "./api.js";
-import { furnished } from "./game-model.js";
+import { furnished, CONTENT_TYPES, DEFAULT_COVER, TITLE_LABEL, contentHref } from "./game-model.js";
 import { notesHtml, fmtWhen, streakCardHtml, daysCardHtml, levelCardHtml, wordsCardHtml, heatHtml, bookingDialog, wordStats } from "./cabinet.js";
 import { dayOf, addDays } from "./stats.js";
 
@@ -22,7 +22,7 @@ export function surfaceCss(s) {
 
 export function itemThumb(item, scale = 2) {
   if (item.surface) return '<span class="thumb-surface" style="' + surfaceCss(item.surface) + '"></span>';
-  if (item.type === "show" || item.type === "book") return '<span class="thumb-cover" style="--cover:' + esc(item.cover || "#1E5C62") + '"><b>' + esc(item.name) + "</b></span>";
+  if (CONTENT_TYPES.includes(item.type)) return '<span class="thumb-cover" style="--cover:' + esc(item.cover || DEFAULT_COVER) + '"><b>' + esc(item.name) + "</b></span>";
   if (!item.sprite) return "";
   const [x, y, w, h] = item.sprite.rect;
   return '<span class="thumb-sprite" style="width:' + w * scale + "px;height:" + h * scale + 'px"><i style="width:' + w + "px;height:" + h + "px;background:url(" + spriteUrl(item.sprite) + ") -" + x + "px -" + y + "px no-repeat;transform:scale(" + scale + ')"></i></span>';
@@ -152,10 +152,13 @@ function diaryPanel(ctx) {
 
 function libraryPanel(ctx) {
   const own = new Set(ctx.gameSummary.owned);
-  const shows = ctx.config.items.filter(i => (i.type === "show" || i.type === "book") && own.has(i.id));
-  const href = i => "/" + i.id;
-  const body = (shows.length ? '<div class="shelf">' + shows.map(i => (ctx.readOnly ? '<div class="shelf-i">' : '<a class="shelf-i" href="' + esc(href(i)) + '">') + itemThumb(i) + "<b>" + esc(i.name) + "</b><span>" + esc(i.sub || (i.type === "book" ? "Book" : "Show")) + "</span>" + (ctx.readOnly ? "</div>" : "</a>")).join("") + "</div>"
-    : '<p class="empty-s">' + (ctx.readOnly ? "No shows or books yet." : "Your bookshelf is empty. Shows and books you get in the shop appear here.") + "</p>") +
+  const titles = ctx.config.items.filter(i => CONTENT_TYPES.includes(i.type) && own.has(i.id));
+  const card = i => {
+    const href = !ctx.readOnly && contentHref(i), inner = itemThumb(i) + "<b>" + esc(i.name) + "</b><span>" + esc(i.sub || TITLE_LABEL[i.type]) + "</span>";
+    return href ? '<a class="shelf-i" href="' + esc(href) + '">' + inner + "</a>" : '<div class="shelf-i">' + inner + "</div>";
+  };
+  const body = (titles.length ? '<div class="shelf">' + titles.map(card).join("") + "</div>"
+    : '<p class="empty-s">' + (ctx.readOnly ? "No shows, movies or books yet." : "Your bookshelf is empty. Shows, movies and books you get in the shop appear here.") + "</p>") +
     (ctx.readOnly ? "" : '<div class="g-actions"><a class="p-btn primary" href="/shop" data-nav data-close>Find more in the shop</a></div>');
   panel("Bookshelf", body, "rm-library");
 }

@@ -35,6 +35,7 @@ try {
   console.log(`Catalog database (${await dbKind()}), files: ${JSON.stringify(storageInfo())}`);
   console.log(`sheet ${r.sheet}; sections added: ${r.sectionsAdded.length}; items added: ${r.itemsAdded.length}; ` +
     `old uploads migrated: ${r.assetsMigrated.length}; shelf layouts set: ${r.shelvesSet.length}`);
+  for (const u of r.updated) console.log("updated:", u);
   for (const w of r.warnings) console.log("warning:", w);
 } finally {
   await closeDb();
