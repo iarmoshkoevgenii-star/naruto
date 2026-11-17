@@ -2,6 +2,7 @@
    and scaled to fit; objects stand at fixed spots (game-model.js SLOTS). */
 import { api, esc, toast } from "./api.js";
 import { furnished, CONTENT_TYPES, DEFAULT_COVER, TITLE_LABEL, contentHref } from "./game-model.js";
+import { shelfHtml, dvdTitles, dvdThumb } from "./shelf.js";
 import { notesHtml, fmtWhen, streakCardHtml, daysCardHtml, levelCardHtml, wordsCardHtml, heatHtml, bookingDialog, wordStats } from "./cabinet.js";
 import { dayOf, addDays } from "./stats.js";
 
@@ -28,19 +29,23 @@ export function itemThumb(item, scale = 2) {
   return '<span class="thumb-sprite" style="width:' + w * scale + "px;height:" + h * scale + 'px"><i style="width:' + w + "px;height:" + h + "px;background:url(" + spriteUrl(item.sprite) + ") -" + x + "px -" + y + "px no-repeat;transform:scale(" + scale + ')"></i></span>';
 }
 
-function sceneHtml(config, game) {
+/* dvds: the ids of the student's DVDs in purchase order (summary.dvds), drawn on the bookshelf. */
+function sceneHtml(config, game, dvds) {
   const room = config.room, items = furnished(game, config), out = [];
   const wall = items.wallpaper, floor = items.floor;
   out.push('<div class="rm-wall" style="height:' + room.wall + "px;" + (wall ? surfaceCss(wall.surface) : "") + '"></div>');
   out.push('<div class="rm-floor" style="top:' + room.wall + "px;height:" + (room.h - room.wall) + "px;" + (floor ? surfaceCss(floor.surface) : "") + '"></div>');
   const placed = config.slots.filter(s => s.kind !== "surface" && items[s.id] && items[s.id].sprite)
     .map(s => ({ s, it: items[s.id] })).sort((a, b) => (a.s.z ?? a.s.y) - (b.s.z ?? b.s.y));
+  const titles = dvdTitles(config, dvds);
   for (const { s, it } of placed) {
     const [x, y, w, h] = it.sprite.rect;
     const style = "left:" + Math.round(s.x - w / 2) + "px;top:" + (s.y - h) + "px;width:" + w + "px;height:" + h + "px;z-index:" + (s.z ?? s.y) + ";background:url(" + spriteUrl(it.sprite) + ") -" + x + "px -" + y + "px no-repeat";
+    const inner = s.id === "bookshelf" ? shelfHtml(it, titles) : "";
+    const label = s.id === "bookshelf" && titles.length ? s.hint + " (" + titles.length + (titles.length === 1 ? " DVD)" : " DVDs)") : s.hint;
     out.push(s.action
-      ? '<button type="button" class="ri act" data-action="' + s.action + '" data-hint="' + esc(s.hint) + '" aria-label="' + esc(s.hint) + '" style="' + style + '"></button>'
-      : '<div class="ri" title="' + esc(it.name) + '" style="' + style + '"></div>');
+      ? '<button type="button" class="ri act" data-action="' + s.action + '" data-hint="' + esc(s.hint) + '" aria-label="' + esc(label) + '" style="' + style + '">' + inner + "</button>"
+      : '<div class="ri" title="' + esc(it.name) + '" style="' + style + '">' + inner + "</div>");
   }
   return out.join("");
 }
@@ -48,7 +53,7 @@ function sceneHtml(config, game) {
 /* Mounts the room into root. ctx: {config, game, me, readOnly, onShop, onChange} */
 export function mountRoom(root, ctx) {
   const { config } = ctx;
-  root.innerHTML = '<div class="room-wrap"><div class="room" style="width:' + config.room.w + "px;height:" + config.room.h + 'px">' + sceneHtml(config, ctx.game) + '</div><div class="rm-tip" hidden></div></div>' +
+  root.innerHTML = '<div class="room-wrap"><div class="room" style="width:' + config.room.w + "px;height:" + config.room.h + 'px">' + sceneHtml(config, ctx.game, (ctx.gameSummary || {}).dvds) + '</div><div class="rm-tip" hidden></div></div>' +
     '<p class="note rm-help">' + (ctx.readOnly ? "The student’s room. Click an object to see what they see." : (matchMedia("(pointer: coarse)").matches ? "Tap" : "Click") + " an object: the computer for messages, the calendar for deadlines, the diary for your progress, the bookshelf for your shows. The door leads to the shop.") + "</p>";
   const wrap = root.querySelector(".room-wrap"), room = root.querySelector(".room"), tip = root.querySelector(".rm-tip");
   const fit = () => {
@@ -152,13 +157,17 @@ function diaryPanel(ctx) {
 
 function libraryPanel(ctx) {
   const own = new Set(ctx.gameSummary.owned);
-  const titles = ctx.config.items.filter(i => CONTENT_TYPES.includes(i.type) && own.has(i.id));
-  const card = i => {
-    const href = !ctx.readOnly && contentHref(i), inner = itemThumb(i) + "<b>" + esc(i.name) + "</b><span>" + esc(i.sub || TITLE_LABEL[i.type]) + "</span>";
+  const dvds = dvdTitles(ctx.config, ctx.gameSummary.dvds);
+  const books = ctx.config.items.filter(i => i.type === "book" && own.has(i.id));
+  const shelf = furnished(ctx.game, ctx.config).bookshelf, cap = shelf && shelf.shelfLayout ? shelf.shelfLayout.capacity : 0;
+  const card = (i, thumb) => {
+    const href = !ctx.readOnly && contentHref(i), inner = thumb + "<b>" + esc(i.name) + "</b><span>" + esc(i.sub || TITLE_LABEL[i.type]) + "</span>";
     return href ? '<a class="shelf-i" href="' + esc(href) + '">' + inner + "</a>" : '<div class="shelf-i">' + inner + "</div>";
   };
-  const body = (titles.length ? '<div class="shelf">' + titles.map(card).join("") + "</div>"
-    : '<p class="empty-s">' + (ctx.readOnly ? "No shows, movies or books yet." : "Your bookshelf is empty. Shows, movies and books you get in the shop appear here.") + "</p>") +
+  const body = (dvds.length ? '<h3 class="rm-sub">DVDs</h3>' + (cap && dvds.length > cap ? '<p class="note">' + cap + " stand on the shelf; here are all " + dvds.length + ".</p>" : "") +
+      '<div class="shelf">' + dvds.map(i => card(i, dvdThumb(i))).join("") + "</div>" : "") +
+    (books.length ? '<h3 class="rm-sub">Books</h3><div class="shelf">' + books.map(i => card(i, itemThumb(i))).join("") + "</div>" : "") +
+    (dvds.length || books.length ? "" : '<p class="empty-s">' + (ctx.readOnly ? "No shows, movies or books yet." : "Your bookshelf is empty. Shows and movies you get in the shop stand here as DVDs; books are listed here too.") + "</p>") +
     (ctx.readOnly ? "" : '<div class="g-actions"><a class="p-btn primary" href="/shop" data-nav data-close>Find more in the shop</a></div>');
   panel("Bookshelf", body, "rm-library");
 }

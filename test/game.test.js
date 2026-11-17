@@ -109,3 +109,17 @@ test("saveOverrides saves rules only and leaves the rest of config.json for the 
   assert.deepEqual([doc.rules, doc.items, doc.removed], [{ startCoins: 3 }, { "rug-teal": { price: 5 } }, ["clock"]]);
   await assert.rejects(saveOverrides({ rules: { maxLevel: 0 } }), err(422));
 });
+
+test("the summary lists the student's DVDs in purchase order (shows and movies, not books)", async () => {
+  const { createItem } = await import("../lib/catalog.js");
+  const m = await createItem({ name: "Heat", type: "movie", sectionId: "shows", price: 1, minLevel: 1, cover: "#AA3300" });
+  const b = await createItem({ name: "A book", type: "book", sectionId: "shows", price: 1, minLevel: 1 });
+  await buy("ann", m.id);
+  await buy("ann", b.id);
+  const s = await buy("ann", DH);
+  assert.deepEqual(s.dvds, [m.id, DH]);
+  await setStatus(m.id, "deleted");
+  const { config } = await loadConfig();
+  const { summary } = await import("../lib/game.js");
+  assert.deepEqual(summary(await gameOf("ann"), config).dvds, [m.id, DH], "a deleted movie they bought stays on the shelf");
+});

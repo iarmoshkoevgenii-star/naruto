@@ -291,7 +291,7 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
 - Tests: 0 titles → empty; 4 → first row; 15 → full; 20 → 15 placed and `hidden: 5`; order follows
   purchases; books ignored; hidden or deleted titles still count.
 
-### Step 8: DVD rendering · `TODO`
+### Step 8: DVD rendering · `DONE`
 - From step 7 (`public/js/game-model.js`): `shelfTitles(game, config)` gives the titles in purchase order;
   `dvdLayout(titles, shelfLayout)` (two arguments: the DVD size is inside `shelfLayout.dvd`) gives
   `{placed: [{id, x, y, tint, spine}], hidden}`; also `DVD_TYPES`, `DEFAULT_COVER`, `TITLE_LABEL`,
@@ -591,3 +591,26 @@ Newest entry last. Copy this template:
 - Env/infra state: unchanged.
 - Next agent: step 8.
 - Commit: see `git log` ("room-shop step 7")
+
+### Step 8 · 2026-11-17 · DONE
+- Did: `lib/game.js` `summary()` adds `dvds`: the shelf's title ids in purchase order (`shelfTitles`), since
+  the browser has no purchase times. New `public/js/shelf.js`: `dvdTitles(config, ids)`,
+  `shelfHtml(bookshelfItem, titles)` (DVDs drawn **inside** the bookshelf's own element, so they move and
+  zoom with it; each is the blank DVD with either the spine on top, scaled to 3×8, or a multiply layer in
+  the cover colour masked to the blank DVD; "+N" badge when `hidden > 0`; nothing if the bookshelf has no
+  `shelfLayout`) and `dvdThumb(item)` (a DVD case: cover colour, spine down the left). `room.js`:
+  `sceneHtml(config, game, dvds)` fills the bookshelf; its aria-label gains "(N DVDs)"; the bookshelf
+  panel lists DVDs (with "15 stand on the shelf; here are all N." when they don't fit) and Books under
+  their own headings. Editor: "has a DVD spine · Remove" (`item.update {spine: null}`). CSS in
+  `platform.css` (`.ri .dvd*`, `.thumb-dvd`).
+- Decisions/changes vs plan: tinting is CSS (`mix-blend-mode: multiply` + `mask-image`), not a canvas, so
+  the scene stays plain HTML with no image loading in JS.
+- How to verify: `npm test`: 65 passing (`test/game.test.js`: `summary().dvds` in purchase order, books
+  left out, a deleted movie they bought stays). Browser (dev server, seeded PGlite): demo student with no
+  titles → empty shelf; buys Desperate Housewives in the shop → 1 teal DVD top-left; teacher adds 17
+  movies (one with an uploaded 3×8 spine), student buys them → 15 DVDs in purchase order with the spine
+  4th, "+3" badge, aria-label "(18 DVDs)"; panel shows all 18 as DVD cases, only DH links to a page. A
+  new student account with 6 titles: the teacher's read-only view of their room shows the 6 DVDs.
+- Env/infra state: unchanged.
+- Next agent: step 9 (needs the user for deploy).
+- Commit: see `git log` ("room-shop step 8")

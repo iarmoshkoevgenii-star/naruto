@@ -103,7 +103,7 @@ export async function gameEditorPage(main) {
         '<button type="button" class="link-b danger" data-delete>Delete</button>';
     const notes = [esc(TYPE_LABEL(it.type))];
     if (it.status === "hidden") notes.push('<b class="ge-chip">Hidden</b>');
-    if (hasSpine(it.type) && it.spine) notes.push("has a DVD spine");
+    if (hasSpine(it.type) && it.spine) notes.push('has a DVD spine <button type="button" class="link-b" data-unspine' + dis + ">Remove</button>");
     return '<tr data-id="' + esc(it.id) + '"' + (it.status !== "active" ? ' class="ge-off"' : "") + ">" +
       '<td class="ge-order">' + order + "</td>" +
       '<td class="ge-pic">' + itemThumb(it, 2) + "</td>" +
@@ -235,6 +235,7 @@ export async function gameEditorPage(main) {
           { focus: [sel + (up ? " [data-up]" : " [data-down]"), sel + (up ? " [data-down]" : " [data-up]")] });
         return;
       }
+      if (t.closest("[data-unspine]")) { change("item.update", { id, spine: null }, it.name + " has no DVD spine now; it shows its cover colour"); return; }
       const st = ["hide", "unhide", "delete", "restore"].find(k => t.closest("[data-" + k + "]"));
       if (st) {
         const msg = {
