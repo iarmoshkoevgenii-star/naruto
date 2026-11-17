@@ -255,7 +255,7 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
 - Moving an item to another section appends it at the end of that section.
 - Tests for each action, including permissions (student → 403) and validation errors.
 
-### Step 6: Admin UI ("Room & shop") · `TODO`
+### Step 6: Admin UI ("Room & shop") · `DONE`
 - State after step 4: `public/js/game-editor.js` shows the catalog **read-only** (inputs disabled, a
   "coming with the next update" note, `SOON`), the slicer shows the picked piece but has no "Add to the
   shop" form, and only the Rules tab saves (`POST ?action=config {overrides: {rules}}`). Uploads come
@@ -277,7 +277,9 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
 
 ### Step 7: Movie type, DVD data and layout logic · `TODO`
 - Add `movie` to the item types; shop section "Shows & movies" holds `show`, `book`, `movie`. The library
-  panel labels movies as "Movie".
+  panel labels movies as "Movie". `CONTENT_TYPES` (`game-model.js`, step 6) already lists `movie`; the
+  editor's type list is built from `ITEM_TYPES`, so adding `movie` there makes it appear in the
+  Uploads form, with the cover colour and "use as DVD spine" fields (`hasSpine`).
 - Switch both bookshelf items' sprite to the `shelf-empty` assets (catalog update in a new migration or
   seed step, idempotent). The asset is already in each bookshelf's `shelf_layout.empty`
   (`{asset, rect: [0,0,28,40]}`), so the switch is `sprite = shelfLayout.empty`.
@@ -297,7 +299,9 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
 - Hook it into `room.js` where the bookshelf slot is drawn. The read-only teacher view of a student's room
   shows it too.
 - `libraryPanel` lists all titles as DVDs (spine/cover thumbnail), with books under their own heading.
-- Admin: spine upload / cover colour on show and movie items (if step 6 didn't fully cover it).
+- Admin (mostly done in step 6): cover colour is a colour input in each show/book/movie row; a spine is set
+  from the Uploads tab ("Use the whole picture as its DVD spine" when creating, or "Set as DVD spine" for
+  an existing title). Missing: a way to **remove** a spine (`item.update {id, spine: null}` works).
 - Browser check: new student → empty shelf; buy DH → 1 DVD; seed 16+ titles in a test account → "+N".
 
 ### Step 9: Cleanup, docs, release prep · `TODO` · Needs user (deploy)
@@ -523,3 +527,35 @@ Newest entry last. Copy this template:
   Neon is still **not seeded**. Blob for the seed: `BLOB_STORE_ID` + `VERCEL_OIDC_TOKEN` (expires after
   about 12 h; pull again).
 - Commit: see `git log` ("room-shop: read Vercel's prefixed Neon variable")
+
+### Step 6 · 2026-11-17 · DONE
+- Did: `public/js/game-editor.js` rewritten around the step 5 API. Shop list: one card per section (name
+  input = rename, ↑/↓ = `section.reorder`, "Delete section" only when it has no live items, "Add section"
+  form); per item: drag handle ⠿ plus ↑/↓ (`item.reorder`, focus stays on the button), thumbnail, name,
+  price, level (saved on `change`, no re-render so Tab keeps working; errors re-render to put the old
+  value back), section dropdown (`item.update {sectionId}`), starting-item checkbox for room things or a
+  cover colour input for shows/books/movies, Hide / Put on sale / Delete / Restore. Filters: Shop (on sale +
+  hidden), Hidden (n), Deleted (n); ordering controls only in Shop. Uploads: the slicer's form creates the
+  item (`item.create`: type, name, section guessed from where that type already lives, price, level,
+  starting item; for shows/books/movies subtitle + cover colour + "use the whole picture as its DVD spine")
+  and a second form sets the picture as the spine of an existing show/movie. Rules tab unchanged; its
+  button is now "Save rules" and only shows on that tab (or while rules are unsaved). New helpers in
+  `game-model.js`: `CONTENT_TYPES` (moved from `lib/catalog.js`, which re-exports it) and `moveId(ids, id,
+  to)`. CSS in `public/css/platform.css` (`.ge-sec`, `.ge-mv`, `.ge-drag`, drop markers, …).
+- Decisions/changes vs plan: (1) Drag and drop is plain HTML5 DnD; a row is draggable only while its ⠿
+  handle is held, so text in its fields stays selectable. Touch screens use ↑/↓. (2) A spine is always the
+  whole picture (the schema keeps no rect for spines). (3) Each section is its own table, so columns don't
+  line up across sections (fine at this size). Edited steps 7 and 8.
+- How to verify: `npm test`: 54 passing (`test/game-model.test.js` new, for `moveId`). Browser (dev server
+  with seeded PGlite, throwaway credentials): teacher uploads a 40×14 carpet → Uploads → "Use the whole
+  picture" → type Rug (section switched to Walls & floors) → Add to the shop; Shop list: ↑ by click and by
+  Enter keeps focus; price typed + Tab saves (3) and focus moves on; price −5 → the API's message, value
+  back to 3; drag to the top of the section; add "Posters", rename, move up, delete. Student: carpet first
+  in Walls & floors for 3 coins → bought → in the room. Teacher hides it → Hidden (1); student: gone from
+  the shop, still in the room.
+- Env/infra state: unchanged (Neon not seeded; `.env.local` holds pulled production placeholders, so the
+  browser check ran with those names blanked in the environment).
+- Not done / known issues: no "remove spine" button. Shows/movies created in the editor get `u-…` ids that
+  have no episode page (see step 7). Phone layout: the tables scroll sideways inside each section card.
+- Next agent: step 7.
+- Commit: see `git log` ("room-shop step 6")

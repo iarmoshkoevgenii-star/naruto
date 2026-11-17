@@ -45,6 +45,17 @@ export const SLOT_TYPES = { plant: ["plant1", "plant2"] };
 export const spotsFor = type => SLOT_TYPES[type] || [type];
 
 export const ITEM_TYPES = ["show", "book", ...new Set(SLOTS.map(s => s.id.replace(/\d+$/, "")))];
+/* Shows, books and movies live on the bookshelf, not in a room spot: they need no picture. */
+export const CONTENT_TYPES = ["show", "book", "movie"];
+
+/* A copy of ids with `id` moved to index `to` (clamped). Used to build a section's new order. */
+export function moveId(ids, id, to) {
+  const from = ids.indexOf(id);
+  if (from < 0) return [...ids];
+  const out = ids.filter(x => x !== id);
+  out.splice(Math.max(0, Math.min(out.length, to)), 0, id);
+  return out;
+}
 export const PATTERNS = ["plain", "stripes", "dots", "diamonds", "planks", "checker"];
 
 /* ---------- rules: defaults + the teacher's changes (config.json `rules`) ---------- */
