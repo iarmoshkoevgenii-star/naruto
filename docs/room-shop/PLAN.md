@@ -310,7 +310,7 @@ light gray so tinting works), `shelf-layout.json` (3 rows × 5 DVDs = capacity 1
   an existing title). Missing: a way to **remove** a spine (`item.update {id, spine: null}` works).
 - Browser check: new student → empty shelf; buy DH → 1 DVD; seed 16+ titles in a test account → "+N".
 
-### Step 9: Cleanup, docs, release prep · `TODO` · Needs user (deploy)
+### Step 9: Cleanup, docs, release prep · `IN PROGRESS` (code and docs done; deploy waits for the user) · Needs user (deploy)
 - Remove dead code (old overrides-items paths, legacy asset fallback **only if** step 3's migration ran
   in production; otherwise keep it and say so in the log). The legacy pieces are: the `getAsset` fallback
   to `school/game/assets/<id>.json` in `lib/assets.js`, the `dbConfigured()` branches in `lib/assets.js`
@@ -614,3 +614,33 @@ Newest entry last. Copy this template:
 - Env/infra state: unchanged.
 - Next agent: step 9 (needs the user for deploy).
 - Commit: see `git log` ("room-shop step 8")
+
+### Step 9 · 2026-11-17 · IN PROGRESS (deploy waits for the user)
+- Did: removed the dead `builtin` item field (`lib/catalog.js` `itemOut`; nothing reads it since step 6)
+  and stale comments. README: DVD shelf, shop sections, the new editor, "Shop database" section (Neon,
+  `DATABASE_URL` / `NARUTO_STORAGE_DATABASE_URL`, builds migrate, one-time `npm run seed-catalog` with
+  Blob access), local preview (`npm run seed-catalog`, PGlite, `npm test`, a warning about pulled
+  production variables), project layout, troubleshooting. Added `.env.example` (names only; README
+  already told people to copy it, but it never existed and `.env*` ignored it) and `!.env.example` in
+  `.gitignore`.
+- Kept on purpose: the legacy pieces (`getAsset` fallback to `school/game/assets/<id>.json`, the
+  `dbConfigured()` branches in `lib/assets.js` and `storeAsset`, `dbConfigured()` itself) and the old
+  `items`/`removed`/`assets` in `config.json`, because the seed has **not** run in production yet.
+  Remove them only after it has.
+- How to verify: `npm test`: 65 passing. Browser pass on the final code (dev server, seeded PGlite):
+  every editor tab and filter renders, rows and the "Remove" spine link present; room with 15 DVDs and
+  "+3"; panel; teacher's read-only view; no script errors in the console (only 401s from server restarts
+  and the deliberate 422). At 375 px wide the page doesn't scroll sideways; item tables scroll inside
+  their section cards. The step 4/6/8 flows were checked in their own steps on this code line.
+- Env/infra state: local `main` is 12+ commits ahead of `origin/main`; `origin/room-shop` (PR #1) stops at
+  the step 2 notes. On Vercel the database variable is `NARUTO_STORAGE_DATABASE_URL`; locally it is only the
+  `[SENSITIVE]` placeholder, so the seed can't reach Neon from here until the real connection string is
+  put in `.env.local` as `DATABASE_URL`. Neon is **not seeded**.
+- Release order (ask the user before each outward step): (1) push to `room-shop` → PR #1's preview build
+  runs the migrations (check in Neon which database or branch the preview uses); (2) put the real
+  connection string of **that** database in `.env.local` as `DATABASE_URL`, plus Blob access
+  (`BLOB_STORE_ID` + a fresh `VERCEL_OIDC_TOKEN`, or `BLOB_READ_WRITE_TOKEN`), and run
+  `npm run seed-catalog`; (3) check the preview: room, shop, Room & shop editor, DVD shelf; (4) merge to
+  `main` for production; if production uses another database, seed that one too (the seed is add-only and
+  safe to repeat). Then a later session can remove the legacy pieces above.
+- Commit: see `git log` ("room-shop step 9")

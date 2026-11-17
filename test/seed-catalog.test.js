@@ -115,7 +115,7 @@ test("config.json overrides are applied: fields, defaults, hidden, removed, cust
   const [row] = await query("SELECT name, w, h, kind FROM assets WHERE id = $1", [oldPng]);
   assert.deepEqual(row, { name: "Rug picture", w: 2, h: 2, kind: "sprite" });
   const mine = await getItem(`u-${oldPng.slice(0, 8)}-0-0-2-2`);
-  assert.deepEqual([mine.name, mine.sectionId, mine.price, mine.minLevel, mine.builtin, mine.sprite.asset], ["My rug", "walls", 4, 2, false, oldPng]);
+  assert.deepEqual([mine.name, mine.sectionId, mine.price, mine.minLevel, mine.sprite.asset], ["My rug", "walls", 4, 2, oldPng]);
 
   // wrongly labelled upload: new id, item sprite rewritten, warning logged
   const newId = r.remapped[wrong];

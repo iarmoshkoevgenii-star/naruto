@@ -33,10 +33,9 @@ test("createItem returns the client shape and appends to the section", async () 
   const b = await createItem(rug({ name: "Second" }));
   assert.deepEqual(a, {
     id: "rug-a", name: "Rug", type: "rug", price: 3, minLevel: 1, default: false, active: true, status: "active",
-    sectionId: "decor", position: 0, builtin: true, sprite: { asset: pic, rect: [0, 0, 4, 4] },
+    sectionId: "decor", position: 0, sprite: { asset: pic, rect: [0, 0, 4, 4] },
   });
   assert.match(b.id, /^u-[a-f0-9]{12}$/);
-  assert.equal(b.builtin, false);
   assert.equal(b.position, 1);
   assert.deepEqual(await getItem("rug-a"), a);
 });
