@@ -21,7 +21,7 @@ The personal cabinet is a small pixel-art room. Its objects are the way around:
 | Computer | messages: reminders about classes, homework and tests |
 | Calendar | this month with deadlines marked, what is coming up, and “Book a class” (a preview) |
 | Diary | level, XP, coins, streak, days studied, English level, words, and the activity map |
-| Bookshelf | the shows and books the student owns |
+| Bookshelf | the student’s shows, movies and books; each show or movie stands on the shelf as a DVD |
 | Door | the shop |
 
 Hovering over an object (or reaching it with Tab) makes it glow and grow slightly.
@@ -37,17 +37,19 @@ Every 1000 XP is a level, up to 60, and each level gives 100 coins. Students sta
 
 Levels and coins are calculated from each student’s total XP, so changing XP per level or coins per level recalculates everyone straight away.
 
-**The shop** sells shows and books (Desperate Housewives: level 1, 1 coin; a student must own it to open it) and things for the room: furniture skins, rugs, wallpapers and floors, plants, lamps, pictures. A bought item goes into its fixed spot in the room. Rugs, plants, lamps, pictures, the armchair and the clock can be taken out again.
+**The shop** sells shows, movies and books (Desperate Housewives: level 1, 1 coin; a student must own it to open it) and things for the room: furniture skins, rugs, wallpapers and floors, plants, lamps, pictures. Its sections and their order are set in the editor. A bought item goes into its fixed spot in the room. Rugs, plants, lamps, pictures, the armchair and the clock can be taken out again. Students keep what they bought even if the teacher later hides or deletes it.
+
+**The DVD shelf.** The bookshelf starts empty. Every show or movie a student owns adds a DVD, in the order they were bought, row by row: the title’s uploaded spine picture if it has one, otherwise a blank DVD in the title’s cover colour. The shelf holds 15; after that a “+N” badge shows how many more there are, and the bookshelf panel lists them all. Books are listed in the panel only.
 
 **Room & shop editor** (teacher: Students → Room & shop):
 
-- **Shop list:** rename items, change prices and levels, take items off sale, choose the starting item for each spot, delete your own items.
-- **Uploads:** upload a sprite sheet or a single picture (PNG, WebP, GIF or JPEG, up to 1.5 MB). The pieces are found automatically in your browser; click one, name it, choose where it goes, set price and level, and add it to the shop or make it a starting item. Save changes to publish.
-- **Rules:** levels, XP per level, coins per level, starting coins, and XP, daily limits, minimum words and “only once” for each activity.
+- **Shop list** (every change is saved straight away): items grouped by section; rename, change price and level, move to another section, choose the starting item for each spot, set a title’s cover colour, **Hide** (off sale) or **Delete**, and reorder by dragging ⠿ or with the ↑ ↓ buttons. **Hidden** and **Deleted** show those items; deleted ones can be restored. Sections can be added, renamed, reordered, and deleted when empty.
+- **Uploads:** upload a sprite sheet or a single picture (PNG, WebP, GIF or JPEG, up to 1.5 MB). The pieces are found automatically in your browser; click one (or use the whole picture), name it, choose what it is, its section, price and level, and add it to the shop. For a show or movie the whole picture can become its DVD spine; a picture can also be set as the spine of an existing title.
+- **Rules:** levels, XP per level, coins per level, starting coins, and XP, daily limits, minimum words and “only once” for each activity. Saved with **Save rules**.
 
 In a student’s teacher view you can also give or take XP and coins, and reset their game.
 
-**About the art.** The room currently uses simple placeholder drawings (`public/game/placeholders.png`, made by `scripts/placeholders.py`). The licence of the 0_mem0ry furniture packs asks that they not be used with AI tools, so they were not processed here: upload them yourself in Room & shop → Uploads and make the pieces you want into shop items or starting items. The shop is decorated with the DeadWood Cafe pack by ODDBLOT (free to use, not for resale), shrunk to `public/game/shop/*.webp`.
+**About the art.** The room currently uses simple placeholder drawings (`public/game/placeholders.png`, made by `scripts/placeholders.py`; the empty bookshelves and the blank DVD in `public/game/dvd/`, made by `scripts/dvd-placeholders.py`). The licence of the 0_mem0ry furniture packs asks that they not be used with AI tools, so they were not processed here: upload them yourself in Room & shop → Uploads and make the pieces you want into shop items or starting items. The shop is decorated with the DeadWood Cafe pack by ODDBLOT (free to use, not for resale), shrunk to `public/game/shop/*.webp`.
 
 ## Accounts
 
@@ -75,6 +77,17 @@ The repository top level must contain `vercel.json`, `package.json`, `api/`, `pu
 ### Storage
 
 Student accounts and everything students do need a private Vercel Blob store. In the project: **Storage → Create → Blob**, access **Private**, connect it to the project, then **Deployments → ⋯ → Redeploy**. Without storage, only the teacher can sign in, and nothing can be saved.
+
+### Shop database
+
+The shop’s items, sections and uploaded pictures’ details live in a Postgres database (Neon, from the Vercel Marketplace); the picture files themselves live in Blob. In the project: **Storage → Marketplace → Neon**, connect it to the project. The site reads `DATABASE_URL`, or `NARUTO_STORAGE_DATABASE_URL` when the integration was connected with the `NARUTO_STORAGE` prefix. Each deploy’s build creates or updates the tables.
+
+The database starts empty. Fill it once with the built-in shop (and anything the teacher had changed before), from a computer with this repository:
+
+1. In `.env.local`, put the database’s real connection string (Vercel → Storage → the database → `.env.local` tab, **Show secret**) as `DATABASE_URL`, and Blob access: `BLOB_READ_WRITE_TOKEN`, or `BLOB_STORE_ID` with a fresh `VERCEL_OIDC_TOKEN` from `vercel env pull`. The seed refuses to run against a real database while pictures would go to a local folder.
+2. Run `npm run seed-catalog`. It only adds what is missing, so running it again is safe and never undoes the teacher’s changes.
+
+Without the database the site answers “The shop database is not connected yet” for the room and the shop.
 
 **Where the data lives.** Vercel Blob stores data outside Russia. Russian law requires Russian citizens’ personal data to be stored in Russia, so use this deployment with test accounts only, and move to hosting in Russia before adding real students. The storage code sits behind one small interface in `lib/store.js` (`read` and `write` with versions), so it can be pointed at another store.
 
@@ -110,10 +123,12 @@ Student accounts and everything students do need a private Vercel Blob store. In
 ```bash
 npm install
 cp .env.example .env.local      # fill in the teacher login and SESSION_SECRET
+npm run seed-catalog            # once: fills the local shop database
 npm run dev                     # http://localhost:3000, data is kept in .local-store/
+npm test                        # the tests (Node's test runner)
 ```
 
-`npm run dev` runs the same API code as Vercel and applies the same page addresses and security headers.
+`npm run dev` runs the same API code as Vercel and applies the same page addresses and security headers. Without `DATABASE_URL` the shop database is PGlite, a real Postgres running inside Node, kept in `.pglite/` (delete the folder to start over); `npm run dev` and `npm run migrate` create or update its tables. Don’t point a local `.env.local` at the production database by accident: the pulled production variables (`vercel env pull`) include `VERCEL=1` and placeholders for secrets.
 
 ## Security
 
@@ -138,10 +153,18 @@ lib/
   session.js          who is calling: role and language checks
   accounts.js         student accounts (one private document)
   users.js            per-user documents: state (activity, notifications), marks, photo, game
-  game.js             room game logic: XP awards with limits, purchases, spots, uploaded pictures
+  game.js             room game logic: XP awards with limits, purchases, spots, uploaded pictures,
+                      the teacher's shop actions
+  catalog.js          the shop catalog in Postgres: items and sections, with validation
+  assets.js           uploaded pictures: files in the store, details in Postgres
+  db.js, migrate.js   the database (Neon, or PGlite locally) and its migrations
+  seed-catalog.js     fills the catalog from db/seed/catalog.json (npm run seed-catalog)
   store.js            the store (Vercel Blob or a local folder) and the bundled content
   http.js             responses and request checks
   seed-data.js        generated on each deploy from data/ and content/
+db/
+  migrations/         SQL migrations, applied in order (never edit an applied one)
+  seed/catalog.json   the built-in shop items and sections
 content/en/         English episodes
 data/               Naruto episodes, topics, speakers, known words
 public/
@@ -151,19 +174,26 @@ public/
   js/                 platform.js (router), shell.js (top bar), cabinet.js, teacher.js, grammar.js,
                       grammar-data.js, training.js, trainer.js, stats.js (streaks), english.js,
                       english-editor.js, english-model.js, app.js + editor.js + model.js (Naruto),
-                      game-model.js (room spots, items, rules), room.js, shop.js, game-editor.js, rewards.js
-  game/               placeholders.png + placeholders.js (room art), shop/ (DeadWood Cafe art)
+                      game-model.js (room spots, rules, DVD layout), room.js, shelf.js (DVD shelf),
+                      shop.js, game-editor.js, rewards.js
+  game/               placeholders.png + placeholders.js (room art), dvd/ (empty shelves, blank DVD),
+                      shop/ (DeadWood Cafe art)
   css/                tokens.css (palette), shell.css, platform.css, english.css, app.css (Naruto)
 scripts/
   build-seed.mjs      bundles data/ and content/ (Vercel’s build command)
   placeholders.py     draws the placeholder room art (python3 scripts/placeholders.py)
+  dvd-placeholders.py draws the empty bookshelves and the blank DVD
+  migrate.mjs         npm run migrate
+  seed-catalog.mjs    npm run seed-catalog
   dev-server.mjs      local preview
+test/               npm test
 ```
 
 ## Troubleshooting
 
 - **The login page says “The site is not set up yet”.** A variable is missing or `SESSION_SECRET` is shorter than 32 characters. Add it and redeploy.
 - **“Storage is not connected”.** Connect a Private Blob store and redeploy.
+- **“The shop database is not connected yet”, or the shop is empty.** Connect the Neon database and redeploy, then run `npm run seed-catalog` against it (see Shop database).
 - **A page shows `404: NOT_FOUND`.** The files are inside a subfolder of the repository; move them to the top level, or set Settings → Build and Deployment → Root Directory to that folder.
 - **“This episode was changed in another tab”.** Someone saved first; the page loaded the newer version. Repeat your change.
 - **Costs and plans.** Vercel’s free Hobby plan is for non-commercial use; a paid school needs the Pro plan.

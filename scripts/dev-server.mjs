@@ -26,6 +26,12 @@ if (!process.env.BLOB_STORE_ID && !process.env.BLOB_READ_WRITE_TOKEN && process.
 const { buildSeed } = await import("./build-seed.mjs");
 const built = buildSeed();
 console.log("Bundled: Naruto", built.naruto.join(", ") || "none", "| English", built.english.join(", ") || "none");
+{
+  const { migrate } = await import("../lib/migrate.js");
+  const { dbKind } = await import("../lib/db.js");
+  const applied = await migrate();
+  console.log("Catalog database (" + await dbKind() + "):", applied.length ? "applied " + applied.join(", ") : "up to date");
+}
 const PORT = Number(process.env.PORT || 3000);
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon" };
 const vercel = JSON.parse(await readFile("vercel.json", "utf8"));
